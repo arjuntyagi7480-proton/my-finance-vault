@@ -37,8 +37,8 @@
   .entity-sub{font-size:11px; color:var(--muted);}
   .fab{position:fixed; right:18px; bottom:80px; width:54px; height:54px; border-radius:50%; background:var(--accent); color:#04263a; font-size:28px; border:none; box-shadow:0 4px 12px rgba(0,0,0,.4); z-index:20;}
   .navbar{position:fixed; bottom:0; left:0; right:0; background:var(--card); display:flex; border-top:1px solid var(--border); z-index:10;}
-  .navbtn{flex:1; text-align:center; padding:9px 0 7px; color:var(--muted); background:none; border:none; font-size:10px;}
-  .navbtn .ic{font-size:17px; display:block;}
+  .navbtn{flex:1; text-align:center; padding:10px 0 8px; color:var(--muted); background:none; border:none; font-size:10px;}
+  .navbtn .ic{font-size:26px; display:block; margin-bottom:2px;}
   .navbtn.active{color:var(--accent);}
   h2{font-size:16px; margin:4px 0 12px;}
   h3{font-size:14px; margin:0 0 8px;}
@@ -90,14 +90,6 @@
 </header>
 
 <div class="screen active" id="screen-dashboard">
-  <div class="tile-grid">
-    <button class="tile" data-goto="dashboard"><span class="ic">🏠</span><span class="lb">Home</span></button>
-    <button class="tile" data-goto="banks"><span class="ic">🏦</span><span class="lb">Banks</span></button>
-    <button class="tile" data-goto="cards"><span class="ic">💳</span><span class="lb">Cards</span></button>
-    <button class="tile" data-goto="bills"><span class="ic">📄</span><span class="lb">Bills</span></button>
-    <button class="tile" data-goto="ids"><span class="ic">🪪</span><span class="lb">Govt ID</span></button>
-    <button class="tile" data-goto="settings"><span class="ic">⚙️</span><span class="lb">More</span></button>
-  </div>
   <div class="summary-grid">
     <div class="summary-box">
       <div class="label">Total Card Due</div>
@@ -108,16 +100,10 @@
       <div class="value masked" data-reveal="bankBal">••••••</div>
     </div>
   </div>
-  <h2>⏰ Upcoming Card Dues (7 days)</h2>
-  <div id="upcomingDues"></div>
-  <h2>📄 Upcoming Bills (7 days)</h2>
-  <div id="upcomingBills"></div>
-  <h2>🕒 Recent Transactions</h2>
-  <div id="recentTxns"></div>
   <h2>📇 Cards Overview</h2>
   <div id="dashCards"></div>
-  <h2>🏦 Banks Overview</h2>
-  <div id="dashBanks"></div>
+  <h2>📄 Pending Bills</h2>
+  <div id="upcomingBills"></div>
 </div>
 
 <div class="screen" id="screen-cards">
@@ -175,7 +161,7 @@
 <script>
 const BANKS = ["SBI","HDFC Bank","ICICI Bank","Axis Bank","Kotak Mahindra","Punjab National Bank","Bank of Baroda","Canara Bank","Union Bank of India","IDFC First Bank","Yes Bank","IndusInd Bank","RBL Bank","Federal Bank","IDBI Bank","Bank of India","Indian Bank","Central Bank of India","AU Small Finance Bank","Roar Bank","Other"];
 const ID_TYPES = ["Aadhar","PAN","Driving License","Birth Certificate","Passport","Voter ID","Other"];
-const BILL_TYPES = ["Electricity","WiFi / Internet","Rent","Milk","Maintenance","Gas","Mobile Recharge","DTH / OTT","Water","Other"];
+const BILL_TYPES = ["Credit Card Bill","Electricity","WiFi / Internet","Rent","Milk","Maintenance","Gas","Mobile Recharge","DTH / OTT","Water","Other"];
 const ACCOUNT_TYPES = ["Savings","Current"];
 const CARD_NETWORKS = ["VISA","Mastercard","RuPay","Amex","Discover","Diners Club","Other"];
 
@@ -197,7 +183,7 @@ const CARD_META = {
   "Amex":{color:"#2671b9"}, "Discover":{color:"#f57c1f"}, "Diners Club":{color:"#0060a9"}, "Other":{color:"#475569"}
 };
 const BILL_ICON = {
-  "Electricity":"⚡","WiFi / Internet":"📶","Rent":"🏢","Milk":"🐄","Maintenance":"🏢",
+  "Credit Card Bill":"💳","Electricity":"⚡","WiFi / Internet":"📶","Rent":"🏢","Milk":"🐄","Maintenance":"🏢",
   "Gas":"🔥","Mobile Recharge":"📱","DTH / OTT":"📺","Water":"💧","Other":"📄"
 };
 const ID_ICON = {
@@ -207,6 +193,16 @@ const ID_ICON = {
 
 function getBankMeta(name){ return BANK_META[name] || {emoji:"🏦", color:"#475569"}; }
 function getCardMeta(type){ return CARD_META[type] || CARD_META["Other"]; }
+
+function slug(s){ return (s||"").toString().toLowerCase().trim().replace(/[^a-z0-9]+/g,"-").replace(/(^-|-$)/g,"") || "x"; }
+function iconHTML(folder, key, fallbackEmoji, bgColor, size){
+  size = size || 34;
+  const path = `${folder}/${slug(key)}.png`;
+  return `<span class="entity-emoji" style="width:${size}px;height:${size}px;background:${bgColor}33;font-size:${Math.round(size*0.53)}px;">
+    <img src="${path}" alt="" style="width:100%;height:100%;object-fit:contain;border-radius:8px;display:block;" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-flex';">
+    <span style="display:none; width:100%; height:100%; align-items:center; justify-content:center;">${fallbackEmoji}</span>
+  </span>`;
+}
 
 function detectCardType(numRaw){
   const num = (numRaw||"").replace(/\s/g,"");
@@ -426,9 +422,6 @@ function gotoScreen(name){
 document.querySelectorAll(".navbtn").forEach(btn=>{
   btn.onclick=()=> gotoScreen(btn.dataset.screen);
 });
-document.querySelectorAll(".tile").forEach(t=>{
-  t.onclick = ()=> gotoScreen(t.dataset.goto);
-});
 let currentTab = "dashboard";
 document.getElementById("fabBtn").onclick=()=>{
   const map = {bills:"bill", ids:"id"};
@@ -451,7 +444,7 @@ function openModalHTML(html){
   document.getElementById("modalBg").classList.add("active");
 }
 
-function openForm(type, record){
+async function openForm(type, record){
   currentEditType = type; currentEditId = record ? record.id : null;
   let html = `<button class="close-x" onclick="closeModal()">✕</button>`;
   if(type==="card"){
@@ -478,7 +471,8 @@ function openForm(type, record){
       <p class="small-note">These fields are managed automatically via Transactions.</p>
     </div>`:""}
     <button class="btn primary" onclick="saveCard()">Save</button>
-    ${record?`<button class="btn danger" onclick="deleteRecord('cards',${record.id})">Delete</button>`:""}`;
+    ${record?`<button class="btn danger" onclick="deleteRecord('cards',${record.id})">Delete</button>`:""}
+    ${record?await renderTxnHistoryHTML("card", record.id):""}`;
   } else if(type==="bank"){
     html += `<h3>${record?"Edit Account":"Add New Bank Account"}</h3>
     <label>Bank Name</label>
@@ -504,7 +498,8 @@ function openForm(type, record){
     <label>Available Balance (₹)${record?" (managed via Transactions)":""}</label>
     <input id="f_balance" type="number" value="${record?record.balance||0:""}" ${record?"disabled":""}>
     <button class="btn primary" onclick="saveBank()">Save</button>
-    ${record?`<button class="btn danger" onclick="deleteRecord('banks',${record.id})">Delete</button>`:""}`;
+    ${record?`<button class="btn danger" onclick="deleteRecord('banks',${record.id})">Delete</button>`:""}
+    ${record?await renderTxnHistoryHTML("bank", record.id):""}`;
   } else if(type==="id"){
     html += `<h3>${record?"Edit ID":"Add New Govt ID"}</h3>
     <label>ID Type</label>
@@ -517,14 +512,29 @@ function openForm(type, record){
     <button class="btn primary" onclick="saveId()">Save</button>
     ${record?`<button class="btn danger" onclick="deleteRecord('ids',${record.id})">Delete</button>`:""}`;
   } else if(type==="bill"){
+    const cardsList = await dbAll("cards");
+    const isCC = record && record.billtype === "Credit Card Bill";
     html += `<h3>${record?"Edit Bill":"Add New Bill"}</h3>
     <label>Biller Type</label>
-    <select id="f_billtype">
+    <select id="f_billtype" onchange="onBillTypeChange()">
       <option value="SELECT" ${!record?"selected":""} disabled>-- Select Type --</option>
       ${BILL_TYPES.map(t=>`<option ${record&&record.billtype===t?"selected":""}>${t}</option>`).join("")}
     </select>
+    <div id="ccBillExtra" style="display:${isCC?"block":"none"}">
+      <label>Linked Card</label>
+      <select id="f_linkedcard">
+        <option value="SELECT" selected disabled>-- Select Card --</option>
+        ${cardsList.map(c=>`<option value="${c.id}" ${record&&record.linkedCardId===c.id?"selected":""}>${c.bank} •••• ${c.cardnoLast4}</option>`).join("")}
+      </select>
+      ${!cardsList.length?`<p class="small-note">No cards added yet — add a Card first from the Cards tab.</p>`:""}
+      <label>Minimum Due (₹)</label>
+      <input id="f_billmindue" type="number" value="${record?record.mindue||"":""}">
+    </div>
     <label>Nickname (optional, e.g. "Airtel Wifi", "Jagatpura Rent")</label>
     <input id="f_billnick" value="${record?record.nickname||"":""}">
+    <div id="billSmsGate" style="display:${record?"block":"none"}">
+      <button class="icon-btn" onclick="openSmsParse('bill')">📋 Paste SMS to Auto-fill</button>
+    </div>
     <label>Amount Due (₹)</label>
     <input id="f_billamount" type="number" value="${record?record.amount||"":""}">
     <label>Due Date</label>
@@ -546,6 +556,14 @@ function openForm(type, record){
   if(type==="card"){
     attachExpiryMask(document.getElementById("f_expiry"));
   }
+}
+function onBillTypeChange(){
+  const val = document.getElementById("f_billtype").value;
+  const isCC = val === "Credit Card Bill";
+  const ccDiv = document.getElementById("ccBillExtra");
+  if(ccDiv) ccDiv.style.display = isCC ? "block":"none";
+  const gate = document.getElementById("billSmsGate");
+  if(gate) gate.style.display = val==="SELECT" ? "none":"block";
 }
 function onCardNoInput(){
   const num = document.getElementById("f_cardno").value;
@@ -625,16 +643,37 @@ async function saveId(){
 async function saveBill(){
   const billtypeVal = document.getElementById("f_billtype").value;
   if(billtypeVal==="SELECT"){ alert("Please select Biller Type"); return; }
+  const isCC = billtypeVal === "Credit Card Bill";
+  let linkedCardId = null, mindue = 0;
+  if(isCC){
+    const cardSel = document.getElementById("f_linkedcard").value;
+    if(cardSel==="SELECT"){ alert("Please select the linked Card"); return; }
+    linkedCardId = +cardSel;
+    mindue = +document.getElementById("f_billmindue").value || 0;
+  }
+  const amount = +document.getElementById("f_billamount").value || 0;
+  const duedate = document.getElementById("f_billduedate").value;
   const obj = {
     billtype: billtypeVal,
     nickname: document.getElementById("f_billnick").value.trim(),
-    amount: +document.getElementById("f_billamount").value || 0,
-    duedate: document.getElementById("f_billduedate").value,
+    amount: amount,
+    duedate: duedate,
     status: document.getElementById("f_billstatus").value,
     recurring: document.getElementById("f_billrecurring").value,
+    linkedCardId: linkedCardId,
+    mindue: mindue,
   };
   if(currentEditId) obj.id = currentEditId;
   await dbPut("bills", obj);
+  if(isCC && linkedCardId){
+    const card = await dbGet("cards", linkedCardId);
+    if(card){
+      card.due = amount;
+      card.mindue = mindue;
+      card.duedate = duedate;
+      await dbPut("cards", card);
+    }
+  }
   closeModal(); await renderAll();
 }
 async function deleteRecord(store,id){
@@ -662,22 +701,17 @@ async function openTxnForm(entityType){
   </select>
   <div id="t_gate" style="display:none">
     <label>Transaction Type</label>
-    <select id="t_type" onchange="onTxnTypeChange()">
+    <select id="t_type">
       ${entityType==="card"
-        ? `<option value="purchase">Purchase (increases due)</option><option value="payment">Payment (reduces due)</option><option value="bill">Bill Generated (set statement)</option>`
+        ? `<option value="purchase">Purchase (increases due)</option><option value="payment">Payment (reduces due)</option>`
         : `<option value="credit">Credit (money in)</option><option value="debit">Debit (money out)</option>`}
     </select>
+    <p class="small-note">${entityType==="card"?"To set a new statement (Total Due / Min Due / Due Date), add a \"Credit Card Bill\" from the Bills tab instead.":""}</p>
     <button class="icon-btn" style="margin-top:8px" onclick="openSmsParse('txn')">📋 Paste SMS to Auto-fill</button>
     <label>Amount (₹)</label>
     <input id="t_amount" type="number">
     <label>Date</label>
     <input id="t_date" type="date" value="${new Date().toISOString().slice(0,10)}">
-    <div id="t_billExtra" style="display:none">
-      <label>Minimum Due (₹)</label>
-      <input id="t_mindue" type="number">
-      <label>Due Date</label>
-      <input id="t_duedate" type="date">
-    </div>
     <label>Note (optional)</label>
     <input id="t_note" placeholder="e.g. Grocery, Salary credit">
     <button class="btn primary" onclick="saveTxn('${entityType}')">Save Transaction</button>
@@ -703,24 +737,114 @@ async function saveTxn(entityType){
   const note = document.getElementById("t_note").value.trim();
   if(amount<=0){ alert("Please enter a valid amount"); return; }
 
+  await applyTxnEffect(entityType, entityId, type, amount);
+  await dbPut("transactions", {entityType, entityId, txnType:type, amount, date, note, createdAt: Date.now()});
+  closeModal(); await renderAll();
+}
+
+/* ============ TRANSACTION EFFECT HELPERS (apply / reverse for edit & delete) ============ */
+async function applyTxnEffect(entityType, entityId, type, amount){
   if(entityType==="card"){
     const card = await dbGet("cards", entityId);
+    if(!card) return;
     if(type==="purchase"){ card.utilised = (card.utilised||0)+amount; card.due = (card.due||0)+amount; }
-    else if(type==="payment"){ card.utilised = Math.max(0,(card.utilised||0)-amount); card.due = Math.max(0,(card.due||0)-amount); }
-    else if(type==="bill"){
-      card.due = amount;
-      card.mindue = +document.getElementById("t_mindue").value || 0;
-      card.duedate = document.getElementById("t_duedate").value || "";
-    }
+    else { card.utilised = Math.max(0,(card.utilised||0)-amount); card.due = Math.max(0,(card.due||0)-amount); }
     await dbPut("cards", card);
   } else {
     const bank = await dbGet("banks", entityId);
+    if(!bank) return;
     if(type==="credit") bank.balance = (bank.balance||0)+amount;
     else bank.balance = Math.max(0,(bank.balance||0)-amount);
     await dbPut("banks", bank);
   }
-  await dbPut("transactions", {entityType, entityId, txnType:type, amount, date, note, createdAt: Date.now()});
-  closeModal(); await renderAll();
+}
+async function reverseTxnEffect(txn){
+  if(!txn) return;
+  if(txn.entityType==="card"){
+    const card = await dbGet("cards", txn.entityId);
+    if(!card) return;
+    if(txn.txnType==="purchase"){ card.utilised = Math.max(0,(card.utilised||0)-txn.amount); card.due = Math.max(0,(card.due||0)-txn.amount); }
+    else { card.utilised = (card.utilised||0)+txn.amount; card.due = (card.due||0)+txn.amount; }
+    await dbPut("cards", card);
+  } else {
+    const bank = await dbGet("banks", txn.entityId);
+    if(!bank) return;
+    if(txn.txnType==="credit") bank.balance = Math.max(0,(bank.balance||0)-txn.amount);
+    else bank.balance = (bank.balance||0)+txn.amount;
+    await dbPut("banks", bank);
+  }
+}
+
+/* ============ TRANSACTION HISTORY (view / edit / delete) ============ */
+async function renderTxnHistoryHTML(entityType, entityId){
+  const all = await dbAll("transactions");
+  const txns = all.filter(t=>t.entityType===entityType && t.entityId===entityId)
+    .sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+  const typeLabel = {purchase:"Purchase",payment:"Payment",credit:"Credit",debit:"Debit"};
+  if(!txns.length) return `<h3 style="margin-top:18px">Transaction History</h3><div class="empty">No transactions yet</div>`;
+  return `<h3 style="margin-top:18px">Transaction History</h3>` + txns.map(t=>`
+    <div class="card" style="background:var(--card2)">
+      <div class="row"><span class="k">${typeLabel[t.txnType]||t.txnType} • ${t.date||""}</span><span class="v">${fmtMoney(t.amount)}</span></div>
+      ${t.note?`<div class="row"><span class="k">${t.note}</span></div>`:""}
+      <div class="btn-row">
+        <button class="btn small secondary" onclick="openTxnEditForm(${t.id})">Edit</button>
+        <button class="btn small danger" onclick="deleteTxn(${t.id})">Delete</button>
+      </div>
+    </div>`).join("");
+}
+async function openTxnEditForm(txnId){
+  const txn = await dbGet("transactions", txnId);
+  if(!txn) return;
+  let entityLabel = "";
+  if(txn.entityType==="card"){
+    const c = await dbGet("cards", txn.entityId);
+    entityLabel = c ? `${c.bank} •••• ${c.cardnoLast4}` : "Card";
+  } else {
+    const b = await dbGet("banks", txn.entityId);
+    entityLabel = b ? `${b.bankname} •••• ${b.accnoLast4}` : "Bank Account";
+  }
+  const typeOptions = txn.entityType==="card"
+    ? `<option value="purchase" ${txn.txnType==="purchase"?"selected":""}>Purchase (increases due)</option><option value="payment" ${txn.txnType==="payment"?"selected":""}>Payment (reduces due)</option>`
+    : `<option value="credit" ${txn.txnType==="credit"?"selected":""}>Credit (money in)</option><option value="debit" ${txn.txnType==="debit"?"selected":""}>Debit (money out)</option>`;
+  const html = `<button class="close-x" onclick="closeModal()">✕</button>
+  <h3>Edit Transaction</h3>
+  <p class="small-note">${entityLabel}</p>
+  <label>Transaction Type</label>
+  <select id="et_type">${typeOptions}</select>
+  <label>Amount (₹)</label>
+  <input id="et_amount" type="number" value="${txn.amount}">
+  <label>Date</label>
+  <input id="et_date" type="date" value="${txn.date||""}">
+  <label>Note (optional)</label>
+  <input id="et_note" value="${txn.note||""}">
+  <button class="btn primary" onclick="saveTxnEdit(${txn.id})">Save Changes</button>
+  <button class="btn danger" onclick="deleteTxn(${txn.id})">Delete Transaction</button>`;
+  openModalHTML(html);
+}
+async function saveTxnEdit(txnId){
+  const txn = await dbGet("transactions", txnId);
+  if(!txn) return;
+  const newType = document.getElementById("et_type").value;
+  const newAmount = +document.getElementById("et_amount").value || 0;
+  const newDate = document.getElementById("et_date").value;
+  const newNote = document.getElementById("et_note").value.trim();
+  if(newAmount<=0){ alert("Please enter a valid amount"); return; }
+  await reverseTxnEffect(txn);
+  await applyTxnEffect(txn.entityType, txn.entityId, newType, newAmount);
+  await dbPut("transactions", {id:txn.id, entityType:txn.entityType, entityId:txn.entityId, txnType:newType, amount:newAmount, date:newDate, note:newNote, createdAt:txn.createdAt});
+  await renderAll();
+  const updated = await dbGet(txn.entityType==="card"?"cards":"banks", txn.entityId);
+  if(updated) await openForm(txn.entityType, updated); else closeModal();
+}
+async function deleteTxn(txnId){
+  if(!confirm("Delete this transaction? The linked balance/due will be adjusted back.")) return;
+  const txn = await dbGet("transactions", txnId);
+  if(!txn) return;
+  await reverseTxnEffect(txn);
+  await dbDelete("transactions", txnId);
+  await renderAll();
+  const updated = await dbGet(txn.entityType==="card"?"cards":"banks", txn.entityId);
+  if(updated) await openForm(txn.entityType, updated); else closeModal();
 }
 
 let smsParseTarget = null;
@@ -728,6 +852,10 @@ function openSmsParse(target){
   if(target==="txn"){
     const entVal = document.getElementById("t_entity").value;
     if(entVal==="SELECT"){ alert("Please select the Card/Account first, then paste SMS."); return; }
+  }
+  if(target==="bill"){
+    const bt = document.getElementById("f_billtype").value;
+    if(bt==="SELECT"){ alert("Please select Biller Type first, then paste SMS."); return; }
   }
   smsParseTarget = target;
   const html = `<button class="close-x" onclick="closeSmsParse()">✕</button>
@@ -751,19 +879,16 @@ function parseSms(){
   let dateMatch = text.match(dateRegex);
 
   if(smsParseTarget==="txn"){
-    const type = document.getElementById("t_type").value;
     let amt = amounts.length ? amounts[0] : "";
-    if(type==="bill"){
-      const dueMatch = text.match(/(?:total due|amount due|outstanding)[^\d₹Rs]*(?:Rs\.?|INR|₹)?\s?([\d,]+(?:\.\d{1,2})?)/i);
-      const minMatch = text.match(/min(?:imum)? due[^\d₹Rs]*(?:Rs\.?|INR|₹)?\s?([\d,]+(?:\.\d{1,2})?)/i);
-      if(dueMatch) document.getElementById("t_amount").value = dueMatch[1].replace(/,/g,"");
-      else if(amt) document.getElementById("t_amount").value = amt;
-      if(minMatch) document.getElementById("t_mindue").value = minMatch[1].replace(/,/g,"");
-      if(dateMatch){ const d=normalizeDate(dateMatch[1]); if(d) document.getElementById("t_duedate").value = d; }
-    } else {
-      if(amt) document.getElementById("t_amount").value = amt;
-      if(dateMatch){ const d=normalizeDate(dateMatch[1]); if(d) document.getElementById("t_date").value = d; }
-    }
+    if(amt) document.getElementById("t_amount").value = amt;
+    if(dateMatch){ const d=normalizeDate(dateMatch[1]); if(d) document.getElementById("t_date").value = d; }
+  } else if(smsParseTarget==="bill"){
+    const dueMatch = text.match(/(?:total due|amount due|outstanding)[^\d₹Rs]*(?:Rs\.?|INR|₹)?\s?([\d,]+(?:\.\d{1,2})?)/i);
+    const minMatch = text.match(/min(?:imum)? due[^\d₹Rs]*(?:Rs\.?|INR|₹)?\s?([\d,]+(?:\.\d{1,2})?)/i);
+    let amt = dueMatch ? dueMatch[1].replace(/,/g,"") : (amounts.length?amounts[0]:"");
+    if(amt && document.getElementById("f_billamount")) document.getElementById("f_billamount").value = amt;
+    if(minMatch && document.getElementById("f_billmindue")) document.getElementById("f_billmindue").value = minMatch[1].replace(/,/g,"");
+    if(dateMatch && document.getElementById("f_billduedate")){ const d=normalizeDate(dateMatch[1]); if(d) document.getElementById("f_billduedate").value = d; }
   }
   closeSmsParse();
   const st = document.getElementById("smsText"); if(st) st.value="";
@@ -801,11 +926,14 @@ async function renderAll(){
   for(const b of banks) b._accnoPlain = await decryptStr(b.accno);
   for(const i of ids) i._idnoPlain = await decryptStr(i.idno);
 
+  const cardsById = {};
+  for(const c of cards) cardsById[c.id] = c;
+
   renderDashboard(cards, banks, bills, txns);
   renderCards(cards);
   renderBanks(banks);
   renderIds(ids);
-  renderBills(bills);
+  renderBills(bills, cardsById);
 }
 
 function renderDashboard(cards, banks, bills, txns){
@@ -814,41 +942,26 @@ function renderDashboard(cards, banks, bills, txns){
   document.querySelector('[data-reveal="cardDue"]').textContent = revealState["cardDue"] ? fmtMoney(totalDue) : "••••••";
   document.querySelector('[data-reveal="bankBal"]').textContent = revealState["bankBal"] ? fmtMoney(totalBal) : "••••••";
 
-  const upcoming = cards.filter(c=>{ const d=daysUntil(c.duedate); return d!==null && d>=0 && d<=7; })
-    .sort((a,b)=>daysUntil(a.duedate)-daysUntil(b.duedate));
-  document.getElementById("upcomingDues").innerHTML = upcoming.length ? upcoming.map(c=>`
-    <div class="card"><div class="row"><span class="k">${c.bank} •••• ${c.cardnoLast4}</span>
-    <span class="tag due-soon">${daysUntil(c.duedate)}d left</span></div>
-    <div class="row"><span class="k">Due: ${c.duedate}</span><span class="v">${fmtMoney(c.due)}</span></div></div>`).join("")
-    : `<div class="empty">No card dues in the next 7 days 🎉</div>`;
-
-  const upcomingBills = bills.filter(b=>{ if(b.status==="Paid") return false; const d=daysUntil(b.duedate); return d!==null && d>=0 && d<=7; })
-    .sort((a,b)=>daysUntil(a.duedate)-daysUntil(b.duedate));
-  document.getElementById("upcomingBills").innerHTML = upcomingBills.length ? upcomingBills.map(b=>`
-    <div class="card"><div class="row"><span class="k">${BILL_ICON[b.billtype]||"📄"} ${b.billtype}${b.nickname?" • "+b.nickname:""}</span>
-    <span class="tag due-soon">${daysUntil(b.duedate)}d left</span></div>
-    <div class="row"><span class="k">Due: ${b.duedate}</span><span class="v">${fmtMoney(b.amount)}</span></div></div>`).join("")
-    : `<div class="empty">No bills due in the next 7 days 🎉</div>`;
-
-  const recent = [...txns].sort((a,b)=>(b.createdAt||0)-(a.createdAt||0)).slice(0,5);
-  document.getElementById("recentTxns").innerHTML = recent.length ? recent.map(t=>{
-    const label = t.entityType==="card" ? "Card" : "Bank";
-    const typeLabel = {purchase:"Purchase",payment:"Payment",bill:"Bill Generated",credit:"Credit",debit:"Debit"}[t.txnType]||t.txnType;
-    return `<div class="card"><div class="row"><span class="k">${label} • ${typeLabel}</span><span class="v">${fmtMoney(t.amount)}</span></div>
-    <div class="row"><span class="k">${t.date||""}</span><span class="k">${t.note||""}</span></div></div>`;
-  }).join("") : `<div class="empty">No transactions yet</div>`;
-
   document.getElementById("dashCards").innerHTML = cards.length ? cards.map(c=>{
     const cm = getCardMeta(c.cardtype);
-    return `<div class="card"><div class="row"><span class="k">${c.bank} <span class="badge" style="background:${cm.color}">${c.cardtype}</span></span><span class="v">•••• ${c.cardnoLast4}</span></div>
-    <div class="row"><span class="k">Utilised / Limit</span><span class="v">${fmtMoney(c.utilised)} / ${fmtMoney(c.limit)}</span></div></div>`;
+    const bm = getBankMeta(c.bank);
+    return `<div class="card"><div class="row"><span class="k">${iconHTML("bank-logo", c.bank, bm.emoji, bm.color, 22)} ${c.bank} <span class="badge" style="background:${cm.color}">${c.cardtype}</span></span><span class="v">•••• ${c.cardnoLast4}</span></div>
+    <div class="row"><span class="k">Utilised / Limit</span><span class="v">${fmtMoney(c.utilised)} / ${fmtMoney(c.limit)}</span></div>
+    <div class="row"><span class="k">Total Due</span><span class="v">${fmtMoney(c.due)}</span></div></div>`;
   }).join("") : `<div class="empty">No cards added yet</div>`;
 
-  document.getElementById("dashBanks").innerHTML = banks.length ? banks.map(b=>{
-    const bm = getBankMeta(b.bankname);
-    return `<div class="card"><div class="row"><span class="k"><span class="entity-emoji" style="background:${bm.color}22; display:inline-flex; width:22px; height:22px; font-size:13px;">${bm.emoji}</span> ${b.bankname}</span><span class="v">•••• ${b.accnoLast4}</span></div>
-    <div class="row"><span class="k">Balance</span><span class="v masked" data-key="bal${b.id}">${revealState["bal"+b.id]?fmtMoney(b.balance):"••••••"}</span></div></div>`;
-  }).join("") : `<div class="empty">No bank accounts added yet</div>`;
+  const pending = [...bills].filter(b=>b.status!=="Paid").sort((a,b)=>{
+    const da = a.duedate ? new Date(a.duedate).getTime() : Infinity;
+    const db = b.duedate ? new Date(b.duedate).getTime() : Infinity;
+    return da-db;
+  });
+  document.getElementById("upcomingBills").innerHTML = pending.length ? pending.map(b=>{
+    const d = daysUntil(b.duedate);
+    const soon = d!==null && d<=7;
+    return `<div class="card"><div class="row"><span class="k">${iconHTML("bill-logo", b.nickname||b.billtype, BILL_ICON[b.billtype]||"📄", "#334155", 22)} ${b.billtype}${b.nickname?" • "+b.nickname:""}</span>
+    ${d!==null?`<span class="tag ${soon?"due-soon":"ok"}">${d>=0?d+"d left":"Overdue"}</span>`:""}</div>
+    <div class="row"><span class="k">Due: ${b.duedate||"-"}</span><span class="v">${fmtMoney(b.amount)}</span></div></div>`;
+  }).join("") : `<div class="empty">No pending bills 🎉</div>`;
 }
 
 function renderCards(cards){
@@ -857,7 +970,7 @@ function renderCards(cards){
     const bm = getBankMeta(c.bank);
     return `<div class="card" onclick="openForm('card', ${JSON.stringify(c).replace(/"/g,"&quot;")})">
       <div class="entity-head">
-        <div class="entity-emoji" style="background:${bm.color}33">${bm.emoji}</div>
+        ${iconHTML("bank-logo", c.bank, bm.emoji, bm.color, 34)}
         <div>
           <div class="entity-title">${c.bank} <span class="badge" style="background:${cm.color}">${c.cardtype}</span></div>
           <div class="entity-sub">Expiry: ${c.expiry||"-"}</div>
@@ -878,7 +991,7 @@ function renderBanks(banks){
     const bm = getBankMeta(b.bankname);
     return `<div class="card" onclick="openForm('bank', ${JSON.stringify(b).replace(/"/g,"&quot;")})">
       <div class="entity-head">
-        <div class="entity-emoji" style="background:${bm.color}33">${bm.emoji}</div>
+        ${iconHTML("bank-logo", b.bankname, bm.emoji, bm.color, 34)}
         <div>
           <div class="entity-title">${b.bankname}</div>
           <div class="entity-sub">${b.accname||""} • ${b.acctype||""}</div>
@@ -897,27 +1010,29 @@ function renderIds(ids){
   document.getElementById("idsList").innerHTML = ids.length ? ids.map(i=>`
     <div class="card" onclick="openForm('id', ${JSON.stringify(i).replace(/"/g,"&quot;")})">
       <div class="entity-head">
-        <div class="entity-emoji" style="background:#33415533">${ID_ICON[i.idtype]||"🪪"}</div>
+        ${iconHTML("id-logo", i.idtype, ID_ICON[i.idtype]||"🪪", "#334155", 34)}
         <div class="entity-title">${i.idtype}</div>
       </div>
       <div class="row"><span class="k">ID No.</span>
         <span class="v masked" onclick="event.stopPropagation(); toggleReveal('id${i.id}')">${revealState["id"+i.id]? i._idnoPlain : "•••• "+i.idnoLast4}</span></div>
     </div>`).join("") : `<div class="empty">No IDs yet. Tap + to add one</div>`;
 }
-function renderBills(bills){
-  document.getElementById("billsList").innerHTML = bills.length ? bills.map(b=>`
-    <div class="card" onclick="openForm('bill', ${JSON.stringify(b).replace(/"/g,"&quot;")})">
+function renderBills(bills, cardsById){
+  document.getElementById("billsList").innerHTML = bills.length ? bills.map(b=>{
+    const linked = (b.billtype==="Credit Card Bill" && b.linkedCardId && cardsById[b.linkedCardId]) ? cardsById[b.linkedCardId] : null;
+    return `<div class="card" onclick="openForm('bill', ${JSON.stringify(b).replace(/"/g,"&quot;")})">
       <div class="entity-head">
-        <div class="entity-emoji" style="background:#33415533">${BILL_ICON[b.billtype]||"📄"}</div>
+        ${iconHTML("bill-logo", b.nickname||b.billtype, BILL_ICON[b.billtype]||"📄", "#334155", 34)}
         <div>
           <div class="entity-title">${b.billtype}</div>
-          <div class="entity-sub">${b.nickname||""}</div>
+          <div class="entity-sub">${b.nickname||""}${linked?` • ${linked.bank} •••• ${linked.cardnoLast4}`:""}</div>
         </div>
       </div>
       <div class="row"><span class="k">Amount</span><span class="v">${fmtMoney(b.amount)}</span></div>
       <div class="row"><span class="k">Due Date</span><span class="v">${b.duedate||"-"}</span></div>
       <div class="row"><span class="k">Status</span><span class="tag ${b.status==="Paid"?"ok":"due-soon"}">${b.status}</span></div>
-    </div>`).join("") : `<div class="empty">No bills yet. Tap + to add one</div>`;
+    </div>`;
+  }).join("") : `<div class="empty">No bills yet. Tap + to add one</div>`;
 }
 function toggleReveal(key){ revealState[key] = !revealState[key]; renderAll(); }
 
@@ -953,6 +1068,28 @@ async function boot(){
   }
 }
 initPinScreen();
+
+/* ============ BACK BUTTON HANDLING ============ */
+history.pushState({vault:true}, "");
+window.addEventListener("popstate", ()=>{
+  const modalOpen = document.getElementById("modalBg").classList.contains("active");
+  if(modalOpen){
+    closeModal();
+    history.pushState({vault:true}, "");
+    return;
+  }
+  if(currentTab !== "dashboard"){
+    gotoScreen("dashboard");
+    history.pushState({vault:true}, "");
+    return;
+  }
+  const wantsExit = confirm("Exit My Finance Vault?");
+  if(wantsExit){
+    // allow the app/TWA to close naturally
+  } else {
+    history.pushState({vault:true}, "");
+  }
+});
 </script>
 </body>
 </html>
