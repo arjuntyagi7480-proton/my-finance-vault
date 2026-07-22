@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>My Finance Vault</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0f172a">
+<style>
+  :root{
+    --bg:#0f172a; --card:#1e293b; --card2:#273549; --accent:#38bdf8; --accent2:#22c55e;
+    --danger:#f87171; --warn:#fbbf24; --text:#e2e8f0; --muted:#94a3b8; --border:#334155;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{margin:0; font-family:-apple-system,Roboto,Segoe UI,Helvetica,Arial,sans-serif; background:var(--bg); color:var(--text); padding-bottom:80px;}
+  header{position:sticky; top:0; background:var(--bg); padding:16px 16px 8px; z-index:10; border-bottom:1px solid var(--border);}
+  header h1{font-size:20px; margin:0 0 2px;}
+  header p{margin:0; color:var(--muted); font-size:12px;}
+  .screen{display:none; padding:16px;}
+  .screen.active{display:block;}
+  .card{background:var(--card); border-radius:14px; padding:14px; margin-bottom:12px; border:1px solid var(--border);}
+  .summary-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px;}
+  .summary-box{background:var(--card2); border-radius:14px; padding:14px;}
+  .summary-box .label{font-size:11px; color:var(--muted); margin-bottom:4px;}
+  .summary-box .value{font-size:18px; font-weight:700;}
+  .row{display:flex; justify-content:space-between; align-items:center; margin:4px 0;}
+  .row .k{color:var(--muted); font-size:13px;}
+  .row .v{font-weight:600; font-size:13px;}
+  .masked{cursor:pointer; letter-spacing:1px;}
+  .tag{display:inline-block; padding:2px 8px; border-radius:20px; font-size:11px; font-weight:600;}
+  .tag.due-soon{background:#7f1d1d; color:#fecaca;}
+  .tag.ok{background:#14532d; color:#bbf7d0;}
+  .badge{display:inline-flex; align-items:center; gap:4px; padding:3px 9px; border-radius:8px; font-size:11px; font-weight:700; color:#fff;}
+  .entity-head{display:flex; align-items:center; gap:10px; margin-bottom:6px;}
+  .entity-emoji{width:34px; height:34px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0;}
+  .entity-title{font-weight:700; font-size:14px;}
+  .entity-sub{font-size:11px; color:var(--muted);}
+  .fab{position:fixed; right:18px; bottom:80px; width:54px; height:54px; border-radius:50%; background:var(--accent); color:#04263a; font-size:28px; border:none; box-shadow:0 4px 12px rgba(0,0,0,.4); z-index:20;}
+  .navbar{position:fixed; bottom:0; left:0; right:0; background:var(--card); display:flex; border-top:1px solid var(--border); z-index:10;}
+  .navbtn{flex:1; text-align:center; padding:9px 0 7px; color:var(--muted); background:none; border:none; font-size:10px;}
+  .navbtn .ic{font-size:17px; display:block;}
+  .navbtn.active{color:var(--accent);}
+  h2{font-size:16px; margin:4px 0 12px;}
+  h3{font-size:14px; margin:0 0 8px;}
+  label{display:block; font-size:12px; color:var(--muted); margin:10px 0 4px;}
+  input, select, textarea{width:100%; padding:11px; border-radius:10px; border:1px solid var(--border); background:var(--card2); color:var(--text); font-size:14px;}
+  input:disabled{opacity:.6;}
+  textarea{resize:vertical; min-height:80px;}
+  .btn{display:block; width:100%; padding:12px; border-radius:10px; border:none; font-size:14px; font-weight:600; margin-top:14px;}
+  .btn.primary{background:var(--accent); color:#04263a;}
+  .btn.secondary{background:var(--card2); color:var(--text); border:1px solid var(--border);}
+  .btn.danger{background:var(--danger); color:#3b0a0a;}
+  .btn.green{background:var(--accent2); color:#04260f;}
+  .btn.small{width:auto; padding:8px 12px; font-size:12px; display:inline-block; margin:8px 4px 0 0;}
+  .btn-row{display:flex; gap:8px; margin-bottom:14px;}
+  .btn-row .btn{margin-top:0;}
+  .modal-bg{position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; align-items:flex-end; z-index:50;}
+  .modal-bg.active{display:flex;}
+  .modal{background:var(--card); width:100%; max-height:85vh; overflow-y:auto; border-radius:20px 20px 0 0; padding:18px;}
+  .empty{text-align:center; color:var(--muted); padding:40px 10px; font-size:13px;}
+  .pinscreen{position:fixed; inset:0; background:var(--bg); z-index:100; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:20px;}
+  .pindots{display:flex; gap:14px; margin:20px 0;}
+  .pindot{width:14px; height:14px; border-radius:50%; border:2px solid var(--accent);}
+  .pindot.filled{background:var(--accent);}
+  .keypad{display:grid; grid-template-columns:repeat(3,70px); gap:14px; margin-top:10px;}
+  .key{width:70px; height:70px; border-radius:50%; background:var(--card2); color:var(--text); font-size:22px; border:1px solid var(--border);}
+  .key.wide{background:none; border:none; color:var(--muted); font-size:14px;}
+  .close-x{position:absolute; top:14px; right:16px; color:var(--muted); font-size:22px; background:none; border:none;}
+  .small-note{font-size:11px; color:var(--muted); margin-top:6px;}
+  .icon-btn{background:var(--card2); border:1px solid var(--border); color:var(--accent); border-radius:8px; padding:8px 10px; font-size:12px;}
+  .tile-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:16px;}
+  .tile{background:var(--card2); border-radius:14px; padding:14px 6px; text-align:center; border:1px solid var(--border);}
+  .tile .ic{font-size:24px; display:block; margin-bottom:6px;}
+  .tile .lb{font-size:11px; color:var(--text);}
+</style>
+</head>
+<body>
+
+<div class="pinscreen" id="pinScreen">
+  <h2 id="pinTitle">Unlock Vault</h2>
+  <p class="small-note" id="pinSub">Enter your 4-digit PIN</p>
+  <div class="pindots" id="pinDots"></div>
+  <div class="keypad" id="keypad"></div>
+  <p class="small-note" id="pinError" style="color:var(--danger); min-height:16px;"></p>
+</div>
+
+<header>
+  <h1>🔐 My Finance Vault</h1>
+  <p>Cards • Banks • Bills • Govt IDs — encrypted &amp; offline</p>
+</header>
+
+<div class="screen active" id="screen-dashboard">
+  <div class="tile-grid">
+    <button class="tile" data-goto="dashboard"><span class="ic">🏠</span><span class="lb">Home</span></button>
+    <button class="tile" data-goto="banks"><span class="ic">🏦</span><span class="lb">Banks</span></button>
+    <button class="tile" data-goto="cards"><span class="ic">💳</span><span class="lb">Cards</span></button>
+    <button class="tile" data-goto="bills"><span class="ic">📄</span><span class="lb">Bills</span></button>
+    <button class="tile" data-goto="ids"><span class="ic">🪪</span><span class="lb">Govt ID</span></button>
+    <button class="tile" data-goto="settings"><span class="ic">⚙️</span><span class="lb">More</span></button>
+  </div>
+  <div class="summary-grid">
+    <div class="summary-box">
+      <div class="label">Total Card Due</div>
+      <div class="value masked" data-reveal="cardDue">••••••</div>
+    </div>
+    <div class="summary-box">
+      <div class="label">Total Bank Balance</div>
+      <div class="value masked" data-reveal="bankBal">••••••</div>
+    </div>
+  </div>
+  <h2>⏰ Upcoming Card Dues (7 days)</h2>
+  <div id="upcomingDues"></div>
+  <h2>📄 Upcoming Bills (7 days)</h2>
+  <div id="upcomingBills"></div>
+  <h2>🕒 Recent Transactions</h2>
+  <div id="recentTxns"></div>
+  <h2>📇 Cards Overview</h2>
+  <div id="dashCards"></div>
+  <h2>🏦 Banks Overview</h2>
+  <div id="dashBanks"></div>
+</div>
+
+<div class="screen" id="screen-cards">
+  <h2>Credit / Debit Cards</h2>
+  <div class="btn-row">
+    <button class="btn primary" style="flex:1" onclick="openForm('card', null)">+ New Card</button>
+    <button class="btn green" style="flex:1" onclick="openTxnForm('card')">💰 Add Transaction</button>
+  </div>
+  <div id="cardsList"></div>
+</div>
+
+<div class="screen" id="screen-banks">
+  <h2>Bank Accounts</h2>
+  <div class="btn-row">
+    <button class="btn primary" style="flex:1" onclick="openForm('bank', null)">+ New Account</button>
+    <button class="btn green" style="flex:1" onclick="openTxnForm('bank')">💰 Add Transaction</button>
+  </div>
+  <div id="banksList"></div>
+</div>
+
+<div class="screen" id="screen-bills">
+  <h2>Other Bills</h2>
+  <div id="billsList"></div>
+</div>
+
+<div class="screen" id="screen-ids">
+  <h2>Govt IDs</h2>
+  <div id="idsList"></div>
+</div>
+
+<div class="screen" id="screen-settings">
+  <h2>Settings</h2>
+  <div class="card">
+    <button class="btn secondary" onclick="changePin()">🔑 Change PIN</button>
+    <button class="btn secondary" onclick="exportData()">⬇️ Export Backup (JSON)</button>
+    <button class="btn danger" onclick="wipeAll()">🗑️ Delete All Data</button>
+  </div>
+</div>
+
+<button class="fab" id="fabBtn">+</button>
+
+<div class="navbar">
+  <button class="navbtn active" data-screen="dashboard"><span class="ic">🏠</span>Home</button>
+  <button class="navbtn" data-screen="cards"><span class="ic">💳</span>Cards</button>
+  <button class="navbtn" data-screen="banks"><span class="ic">🏦</span>Banks</button>
+  <button class="navbtn" data-screen="bills"><span class="ic">📄</span>Bills</button>
+  <button class="navbtn" data-screen="ids"><span class="ic">🪪</span>IDs</button>
+  <button class="navbtn" data-screen="settings"><span class="ic">⚙️</span>More</button>
+</div>
+
+<div class="modal-bg" id="modalBg">
+  <div class="modal" id="modalBody"></div>
+</div>
+
+<script>
+const BANKS = ["SBI","HDFC Bank","ICICI Bank","Axis Bank","Kotak Mahindra","Punjab National Bank","Bank of Baroda","Canara Bank","Union Bank of India","IDFC First Bank","Yes Bank","IndusInd Bank","RBL Bank","Federal Bank","IDBI Bank","Bank of India","Indian Bank","Central Bank of India","AU Small Finance Bank","Roar Bank","Other"];
+const ID_TYPES = ["Aadhar","PAN","Driving License","Birth Certificate","Passport","Voter ID","Other"];
+const BILL_TYPES = ["Electricity","WiFi / Internet","Rent","Milk","Maintenance","Gas","Mobile Recharge","DTH / OTT","Water","Other"];
+const ACCOUNT_TYPES = ["Savings","Current"];
+const CARD_NETWORKS = ["VISA","Mastercard","RuPay","Amex","Discover","Diners Club","Other"];
+
+const BANK_META = {
+  "SBI":{emoji:"🏛️",color:"#1d4ed8"}, "HDFC Bank":{emoji:"🏦",color:"#dc2626"},
+  "ICICI Bank":{emoji:"🏦",color:"#ea580c"}, "Axis Bank":{emoji:"🏦",color:"#7c2d12"},
+  "Kotak Mahindra":{emoji:"🏦",color:"#b91c1c"}, "Punjab National Bank":{emoji:"🏦",color:"#a16207"},
+  "Bank of Baroda":{emoji:"🏦",color:"#c2410c"}, "Canara Bank":{emoji:"🏦",color:"#a16207"},
+  "Union Bank of India":{emoji:"🏦",color:"#ea580c"}, "IDFC First Bank":{emoji:"🏦",color:"#b91c1c"},
+  "Yes Bank":{emoji:"🏦",color:"#1e3a8a"}, "IndusInd Bank":{emoji:"🏦",color:"#7c2d12"},
+  "RBL Bank":{emoji:"🏦",color:"#b91c1c"}, "Federal Bank":{emoji:"🏦",color:"#0f766e"},
+  "IDBI Bank":{emoji:"🏦",color:"#7f1d1d"}, "Bank of India":{emoji:"🏦",color:"#c2410c"},
+  "Indian Bank":{emoji:"🏦",color:"#1d4ed8"}, "Central Bank of India":{emoji:"🏦",color:"#1e3a8a"},
+  "AU Small Finance Bank":{emoji:"🏦",color:"#b91c1c"}, "Roar Bank":{emoji:"🦁",color:"#f59e0b"},
+  "Other":{emoji:"🏦",color:"#475569"}
+};
+const CARD_META = {
+  "VISA":{color:"#1a1f71"}, "Mastercard":{color:"#eb5b25"}, "RuPay":{color:"#0a7c3e"},
+  "Amex":{color:"#2671b9"}, "Discover":{color:"#f57c1f"}, "Diners Club":{color:"#0060a9"}, "Other":{color:"#475569"}
+};
+const BILL_ICON = {
+  "Electricity":"⚡","WiFi / Internet":"📶","Rent":"🏢","Milk":"🐄","Maintenance":"🏢",
+  "Gas":"🔥","Mobile Recharge":"📱","DTH / OTT":"📺","Water":"💧","Other":"📄"
+};
+const ID_ICON = {
+  "Aadhar":"🆔","PAN":"📇","Driving License":"🚗","Birth Certificate":"📜",
+  "Passport":"🛂","Voter ID":"🗳️","Other":"📄"
+};
+
+function getBankMeta(name){ return BANK_META[name] || {emoji:"🏦", color:"#475569"}; }
+function getCardMeta(type){ return CARD_META[type] || CARD_META["Other"]; }
+
+function detectCardType(numRaw){
+  const num = (numRaw||"").replace(/\s/g,"");
+  if(/^4/.test(num)) return "VISA";
+  if(/^(5[1-5]|2[2-7])/.test(num)) return "Mastercard";
+  if(/^(60|65|81|82|508)/.test(num)) return "RuPay";
+  if(/^3[47]/.test(num)) return "Amex";
+  if(/^6011/.test(num)) return "Discover";
+  if(/^3(0[0-5]|[68])/.test(num)) return "Diners Club";
+  return "Other";
+}
+function attachExpiryMask(el){
+  el.addEventListener("input", ()=>{
+    let digits = el.value.replace(/\D/g,"").slice(0,4);
+    if(digits.length>=3) el.value = digits.slice(0,2)+"/"+digits.slice(2);
+    else el.value = digits;
+  });
+}
+
+let DB;
+let CRYPTO_KEY = null;
+let currentEditId = null, currentEditType = null;
+
+function openDB(){
+  return new Promise((res,rej)=>{
+    const req = indexedDB.open("vaultAT", 3);
+    req.onupgradeneeded = e=>{
+      const db = e.target.result;
+      ["cards","banks","ids","bills","transactions"].forEach(store=>{
+        if(!db.objectStoreNames.contains(store)) db.createObjectStore(store,{keyPath:"id",autoIncrement:true});
+      });
+    };
+    req.onsuccess = e=>{ DB=e.target.result; res(); };
+    req.onerror = e=>rej(e);
+  });
+}
+function dbAll(store){
+  return new Promise((res)=>{
+    const tx=DB.transaction(store,"readonly").objectStore(store).getAll();
+    tx.onsuccess=()=>res(tx.result); tx.onerror=()=>res([]);
+  });
+}
+function dbGet(store,id){
+  return new Promise((res)=>{
+    const tx=DB.transaction(store,"readonly").objectStore(store).get(id);
+    tx.onsuccess=()=>res(tx.result); tx.onerror=()=>res(null);
+  });
+}
+function dbPut(store,obj){
+  return new Promise((res)=>{
+    const tx=DB.transaction(store,"readwrite").objectStore(store).put(obj);
+    tx.onsuccess=()=>res(tx.result); tx.onerror=()=>res(null);
+  });
+}
+function dbDelete(store,id){
+  return new Promise((res)=>{
+    const tx=DB.transaction(store,"readwrite").objectStore(store).delete(id);
+    tx.onsuccess=()=>res(true); tx.onerror=()=>res(false);
+  });
+}
+
+async function deriveKey(pin, saltB64){
+  const enc = new TextEncoder();
+  const salt = saltB64 ? b64ToBuf(saltB64) : crypto.getRandomValues(new Uint8Array(16));
+  const baseKey = await crypto.subtle.importKey("raw", enc.encode(pin), "PBKDF2", false, ["deriveKey"]);
+  const key = await crypto.subtle.deriveKey(
+    {name:"PBKDF2", salt, iterations:100000, hash:"SHA-256"},
+    baseKey, {name:"AES-GCM", length:256}, false, ["encrypt","decrypt"]
+  );
+  if(!saltB64) localStorage.setItem("vaultSalt", bufToB64(salt));
+  return key;
+}
+function bufToB64(buf){ return btoa(String.fromCharCode(...new Uint8Array(buf))); }
+function b64ToBuf(b64){ return Uint8Array.from(atob(b64), c=>c.charCodeAt(0)); }
+async function encryptStr(plain){
+  if(!plain) return "";
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const enc = new TextEncoder().encode(plain);
+  const cipher = await crypto.subtle.encrypt({name:"AES-GCM", iv}, CRYPTO_KEY, enc);
+  return bufToB64(iv) + ":" + bufToB64(cipher);
+}
+async function decryptStr(payload){
+  if(!payload) return "";
+  try{
+    const [ivB64, cipherB64] = payload.split(":");
+    const iv = b64ToBuf(ivB64), cipher = b64ToBuf(cipherB64);
+    const plain = await crypto.subtle.decrypt({name:"AES-GCM", iv}, CRYPTO_KEY, cipher);
+    return new TextDecoder().decode(plain);
+  }catch(e){ return "⚠️ Decrypt Error"; }
+}
+
+let pinBuffer = "";
+let pinMode = "unlock";
+let firstPin = "";
+function renderPinDots(){
+  const dots = document.getElementById("pinDots");
+  dots.innerHTML="";
+  for(let i=0;i<4;i++){
+    const d=document.createElement("div");
+    d.className="pindot"+(i<pinBuffer.length?" filled":"");
+    dots.appendChild(d);
+  }
+}
+function renderKeypad(){
+  const kp=document.getElementById("keypad");
+  kp.innerHTML="";
+  const keys=["1","2","3","4","5","6","7","8","9","","0","⌫"];
+  keys.forEach(k=>{
+    const b=document.createElement("button");
+    b.className = k===""?"key wide":"key";
+    b.textContent=k;
+    if(k!=="") b.onclick=()=>pinPress(k);
+    kp.appendChild(b);
+  });
+}
+function pinPress(k){
+  document.getElementById("pinError").textContent="";
+  if(k==="⌫"){ pinBuffer = pinBuffer.slice(0,-1); renderPinDots(); return; }
+  if(pinBuffer.length>=4) return;
+  pinBuffer += k;
+  renderPinDots();
+  if(pinBuffer.length===4) setTimeout(handlePinComplete, 150);
+}
+async function handlePinComplete(){
+  const savedHash = localStorage.getItem("vaultPinHash");
+  if(pinMode==="unlock"){
+    const hash = await sha256(pinBuffer);
+    if(hash===savedHash){
+      CRYPTO_KEY = await deriveKey(pinBuffer, localStorage.getItem("vaultSalt"));
+      document.getElementById("pinScreen").style.display="none";
+      boot();
+    } else {
+      document.getElementById("pinError").textContent="Incorrect PIN, try again";
+      pinBuffer=""; renderPinDots();
+    }
+  } else if(pinMode==="setup"){
+    firstPin = pinBuffer; pinBuffer="";
+    pinMode="setup-confirm";
+    document.getElementById("pinSub").textContent="Confirm your PIN";
+    renderPinDots();
+  } else if(pinMode==="setup-confirm"){
+    if(pinBuffer===firstPin){
+      const hash = await sha256(pinBuffer);
+      localStorage.setItem("vaultPinHash", hash);
+      CRYPTO_KEY = await deriveKey(pinBuffer, null);
+      document.getElementById("pinScreen").style.display="none";
+      boot();
+    } else {
+      document.getElementById("pinError").textContent="PIN did not match, set again";
+      pinBuffer=""; firstPin=""; pinMode="setup";
+      document.getElementById("pinSub").textContent="Set a new 4-digit PIN";
+      renderPinDots();
+    }
+  } else if(pinMode==="change-old"){
+    const hash = await sha256(pinBuffer);
+    if(hash===savedHash){
+      pinMode="change-new"; pinBuffer="";
+      document.getElementById("pinSub").textContent="Set new PIN";
+      renderPinDots();
+    } else {
+      document.getElementById("pinError").textContent="Old PIN incorrect";
+      pinBuffer=""; renderPinDots();
+    }
+  } else if(pinMode==="change-new"){
+    firstPin = pinBuffer; pinBuffer="";
+    pinMode="change-confirm";
+    document.getElementById("pinSub").textContent="Confirm new PIN";
+    renderPinDots();
+  } else if(pinMode==="change-confirm"){
+    if(pinBuffer===firstPin){
+      const hash = await sha256(pinBuffer);
+      localStorage.setItem("vaultPinHash", hash);
+      alert("Please 'Export Backup' before changing PIN — see the README for this limitation.");
+      document.getElementById("pinScreen").style.display="none";
+      pinMode="unlock"; pinBuffer="";
+      location.reload();
+    } else {
+      document.getElementById("pinError").textContent="PIN did not match";
+      pinBuffer=""; pinMode="change-new";
+      renderPinDots();
+    }
+  }
+}
+async function sha256(str){
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
+  return bufToB64(buf);
+}
+function changePin(){
+  pinMode="change-old"; pinBuffer="";
+  document.getElementById("pinScreen").style.display="flex";
+  document.getElementById("pinTitle").textContent="Change PIN";
+  document.getElementById("pinSub").textContent="Enter old PIN";
+  renderPinDots();
+}
+function initPinScreen(){
+  renderKeypad();
+  const savedHash = localStorage.getItem("vaultPinHash");
+  if(!savedHash){
+    pinMode="setup";
+    document.getElementById("pinTitle").textContent="Set Up PIN";
+    document.getElementById("pinSub").textContent="Create a new 4-digit PIN";
+  } else {
+    pinMode="unlock";
+  }
+  renderPinDots();
+}
+
+function gotoScreen(name){
+  document.querySelectorAll(".navbtn").forEach(b=>b.classList.remove("active"));
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+  const nb = document.querySelector(`.navbtn[data-screen="${name}"]`);
+  if(nb) nb.classList.add("active");
+  document.getElementById("screen-"+name).classList.add("active");
+  document.getElementById("fabBtn").style.display = (name==="settings"||name==="dashboard"||name==="cards"||name==="banks") ? "none":"flex";
+  currentTab = name;
+}
+document.querySelectorAll(".navbtn").forEach(btn=>{
+  btn.onclick=()=> gotoScreen(btn.dataset.screen);
+});
+document.querySelectorAll(".tile").forEach(t=>{
+  t.onclick = ()=> gotoScreen(t.dataset.goto);
+});
+let currentTab = "dashboard";
+document.getElementById("fabBtn").onclick=()=>{
+  const map = {bills:"bill", ids:"id"};
+  if(!map[currentTab]){ return; }
+  openForm(map[currentTab], null);
+};
+
+let revealState = {};
+document.addEventListener("click", e=>{
+  if(e.target.classList.contains("masked")){
+    const key = e.target.dataset.reveal || e.target.dataset.key;
+    revealState[key] = !revealState[key];
+    renderAll();
+  }
+});
+
+function closeModal(){ document.getElementById("modalBg").classList.remove("active"); }
+function openModalHTML(html){
+  document.getElementById("modalBody").innerHTML = html;
+  document.getElementById("modalBg").classList.add("active");
+}
+
+function openForm(type, record){
+  currentEditType = type; currentEditId = record ? record.id : null;
+  let html = `<button class="close-x" onclick="closeModal()">✕</button>`;
+  if(type==="card"){
+    const detected = record ? record.cardtype : "Other";
+    html += `<h3>${record?"Edit Card":"Add New Card"}</h3>
+    <label>Bank Name</label>
+    <select id="f_bank">
+      <option value="SELECT" ${!record?"selected":""} disabled>-- Select Bank --</option>
+      ${BANKS.map(b=>`<option ${record&&record.bank===b?"selected":""}>${b}</option>`).join("")}
+    </select>
+    <label>Card Number</label>
+    <input id="f_cardno" placeholder="XXXX XXXX XXXX XXXX" value="${record?record._cardnoPlain||"":""}" oninput="onCardNoInput()">
+    <label>Card Type (auto-detected, editable)</label>
+    <select id="f_cardtype">${CARD_NETWORKS.map(t=>`<option ${detected===t?"selected":""}>${t}</option>`).join("")}</select>
+    <label>Expiry Date</label>
+    <input id="f_expiry" placeholder="00/00" maxlength="5" value="${record?record.expiry||"":""}">
+    <label>Total Limit (₹)</label>
+    <input id="f_limit" type="number" value="${record?record.limit||"":""}">
+    ${record?`<div class="card" style="margin-top:14px; background:var(--card2);">
+      <div class="row"><span class="k">Utilised</span><span class="v">${fmtMoney(record.utilised)}</span></div>
+      <div class="row"><span class="k">Total Due</span><span class="v">${fmtMoney(record.due)}</span></div>
+      <div class="row"><span class="k">Min Due</span><span class="v">${fmtMoney(record.mindue)}</span></div>
+      <div class="row"><span class="k">Due Date</span><span class="v">${record.duedate||"-"}</span></div>
+      <p class="small-note">These fields are managed automatically via Transactions.</p>
+    </div>`:""}
+    <button class="btn primary" onclick="saveCard()">Save</button>
+    ${record?`<button class="btn danger" onclick="deleteRecord('cards',${record.id})">Delete</button>`:""}`;
+  } else if(type==="bank"){
+    html += `<h3>${record?"Edit Account":"Add New Bank Account"}</h3>
+    <label>Bank Name</label>
+    <select id="f_bankname">
+      <option value="SELECT" ${!record?"selected":""} disabled>-- Select Bank --</option>
+      ${BANKS.map(b=>`<option ${record&&record.bankname===b?"selected":""}>${b}</option>`).join("")}
+    </select>
+    <label>Account Name (nickname)</label>
+    <input id="f_accname" value="${record?record.accname||"":""}" placeholder="e.g. Primary Savings">
+    <label>Account Number</label>
+    <input id="f_accno" value="${record?record._accnoPlain||"":""}">
+    <label>Account Type</label>
+    <select id="f_acctype">${ACCOUNT_TYPES.map(t=>`<option ${record&&record.acctype===t?"selected":""}>${t}</option>`).join("")}</select>
+    <label>IFSC</label>
+    <div style="display:flex; gap:8px;">
+      <input id="f_ifsc" style="flex:1" value="${record?record.ifsc||"":""}" placeholder="e.g. SBIN0001234">
+      <button type="button" class="icon-btn" onclick="fetchIFSC()">Fetch</button>
+    </div>
+    <label>Branch Address</label>
+    <input id="f_branchaddr" value="${record?record.branchaddr||"":""}">
+    <label>Branch Phone</label>
+    <input id="f_branchphone" value="${record?record.branchphone||"":""}">
+    <label>Available Balance (₹)${record?" (managed via Transactions)":""}</label>
+    <input id="f_balance" type="number" value="${record?record.balance||0:""}" ${record?"disabled":""}>
+    <button class="btn primary" onclick="saveBank()">Save</button>
+    ${record?`<button class="btn danger" onclick="deleteRecord('banks',${record.id})">Delete</button>`:""}`;
+  } else if(type==="id"){
+    html += `<h3>${record?"Edit ID":"Add New Govt ID"}</h3>
+    <label>ID Type</label>
+    <select id="f_idtype">
+      <option value="SELECT" ${!record?"selected":""} disabled>-- Select Type --</option>
+      ${ID_TYPES.map(t=>`<option ${record&&record.idtype===t?"selected":""}>${t}</option>`).join("")}
+    </select>
+    <label>ID Number</label>
+    <input id="f_idno" value="${record?record._idnoPlain||"":""}">
+    <button class="btn primary" onclick="saveId()">Save</button>
+    ${record?`<button class="btn danger" onclick="deleteRecord('ids',${record.id})">Delete</button>`:""}`;
+  } else if(type==="bill"){
+    html += `<h3>${record?"Edit Bill":"Add New Bill"}</h3>
+    <label>Biller Type</label>
+    <select id="f_billtype">
+      <option value="SELECT" ${!record?"selected":""} disabled>-- Select Type --</option>
+      ${BILL_TYPES.map(t=>`<option ${record&&record.billtype===t?"selected":""}>${t}</option>`).join("")}
+    </select>
+    <label>Nickname (optional, e.g. "Airtel Wifi", "Jagatpura Rent")</label>
+    <input id="f_billnick" value="${record?record.nickname||"":""}">
+    <label>Amount Due (₹)</label>
+    <input id="f_billamount" type="number" value="${record?record.amount||"":""}">
+    <label>Due Date</label>
+    <input id="f_billduedate" type="date" value="${record?record.duedate||"":""}">
+    <label>Status</label>
+    <select id="f_billstatus">
+      <option ${record&&record.status==="Unpaid"?"selected":""}>Unpaid</option>
+      <option ${record&&record.status==="Paid"?"selected":""}>Paid</option>
+    </select>
+    <label>Recurring</label>
+    <select id="f_billrecurring">
+      <option ${record&&record.recurring==="Monthly"?"selected":""}>Monthly</option>
+      <option ${record&&record.recurring==="One-time"?"selected":""}>One-time</option>
+    </select>
+    <button class="btn primary" onclick="saveBill()">Save</button>
+    ${record?`<button class="btn danger" onclick="deleteRecord('bills',${record.id})">Delete</button>`:""}`;
+  }
+  openModalHTML(html);
+  if(type==="card"){
+    attachExpiryMask(document.getElementById("f_expiry"));
+  }
+}
+function onCardNoInput(){
+  const num = document.getElementById("f_cardno").value;
+  const detected = detectCardType(num);
+  const sel = document.getElementById("f_cardtype");
+  if(sel) sel.value = detected;
+}
+
+async function fetchIFSC(){
+  const ifsc = document.getElementById("f_ifsc").value.trim().toUpperCase();
+  if(!ifsc){ alert("Please enter IFSC first"); return; }
+  try{
+    const res = await fetch(`https://ifsc.razorpay.com/${ifsc}`);
+    if(!res.ok) throw new Error();
+    const data = await res.json();
+    document.getElementById("f_branchaddr").value = `${data.BRANCH}, ${data.ADDRESS}`;
+    document.getElementById("f_branchphone").value = data.CONTACT || "N/A";
+  }catch(e){
+    alert("Could not fetch IFSC details — check internet or verify the IFSC code");
+  }
+}
+
+async function saveCard(){
+  const bankVal = document.getElementById("f_bank").value;
+  if(bankVal==="SELECT"){ alert("Please select Issuer Bank"); return; }
+  const cardno = document.getElementById("f_cardno").value.trim();
+  const existing = currentEditId ? await dbGet("cards", currentEditId) : null;
+  const obj = {
+    bank: bankVal,
+    cardno: await encryptStr(cardno),
+    cardnoLast4: cardno.replace(/\s/g,"").slice(-4),
+    cardtype: document.getElementById("f_cardtype").value,
+    expiry: document.getElementById("f_expiry").value,
+    limit: +document.getElementById("f_limit").value || 0,
+    utilised: existing ? existing.utilised||0 : 0,
+    due: existing ? existing.due||0 : 0,
+    mindue: existing ? existing.mindue||0 : 0,
+    duedate: existing ? existing.duedate||"" : "",
+  };
+  if(currentEditId) obj.id = currentEditId;
+  await dbPut("cards", obj);
+  closeModal(); await renderAll();
+}
+async function saveBank(){
+  const bankVal = document.getElementById("f_bankname").value;
+  if(bankVal==="SELECT"){ alert("Please select Bank Name"); return; }
+  const accno = document.getElementById("f_accno").value.trim();
+  const existing = currentEditId ? await dbGet("banks", currentEditId) : null;
+  const obj = {
+    bankname: bankVal,
+    accname: document.getElementById("f_accname").value.trim(),
+    accno: await encryptStr(accno),
+    accnoLast4: accno.slice(-4),
+    acctype: document.getElementById("f_acctype").value,
+    ifsc: document.getElementById("f_ifsc").value.trim().toUpperCase(),
+    branchaddr: document.getElementById("f_branchaddr").value,
+    branchphone: document.getElementById("f_branchphone").value,
+    balance: existing ? existing.balance||0 : (+document.getElementById("f_balance").value || 0),
+  };
+  if(currentEditId) obj.id = currentEditId;
+  await dbPut("banks", obj);
+  closeModal(); await renderAll();
+}
+async function saveId(){
+  const idtypeVal = document.getElementById("f_idtype").value;
+  if(idtypeVal==="SELECT"){ alert("Please select ID Type"); return; }
+  const idno = document.getElementById("f_idno").value.trim();
+  const obj = {
+    idtype: idtypeVal,
+    idno: await encryptStr(idno),
+    idnoLast4: idno.slice(-4),
+  };
+  if(currentEditId) obj.id = currentEditId;
+  await dbPut("ids", obj);
+  closeModal(); await renderAll();
+}
+async function saveBill(){
+  const billtypeVal = document.getElementById("f_billtype").value;
+  if(billtypeVal==="SELECT"){ alert("Please select Biller Type"); return; }
+  const obj = {
+    billtype: billtypeVal,
+    nickname: document.getElementById("f_billnick").value.trim(),
+    amount: +document.getElementById("f_billamount").value || 0,
+    duedate: document.getElementById("f_billduedate").value,
+    status: document.getElementById("f_billstatus").value,
+    recurring: document.getElementById("f_billrecurring").value,
+  };
+  if(currentEditId) obj.id = currentEditId;
+  await dbPut("bills", obj);
+  closeModal(); await renderAll();
+}
+async function deleteRecord(store,id){
+  if(!confirm("Delete this record? This cannot be undone.")) return;
+  await dbDelete(store,id);
+  closeModal(); await renderAll();
+}
+
+async function openTxnForm(entityType){
+  const list = entityType==="card" ? await dbAll("cards") : await dbAll("banks");
+  if(!list.length){
+    alert(entityType==="card" ? "Please add a Card first, then add a transaction." : "Please add a Bank Account first, then add a transaction.");
+    return;
+  }
+  for(const r of list){
+    if(entityType==="card") r._label = `${r.bank} •••• ${r.cardnoLast4}`;
+    else r._label = `${r.bankname}${r.accname?" ("+r.accname+")":""} •••• ${r.accnoLast4}`;
+  }
+  let html = `<button class="close-x" onclick="closeModal()">✕</button>
+  <h3>Add Transaction — ${entityType==="card"?"Card":"Bank Account"}</h3>
+  <label>Select ${entityType==="card"?"Card":"Account"}</label>
+  <select id="t_entity" onchange="onTxnEntityChange('${entityType}')">
+    <option value="SELECT" selected disabled>-- Select --</option>
+    ${list.map(r=>`<option value="${r.id}">${r._label}</option>`).join("")}
+  </select>
+  <div id="t_gate" style="display:none">
+    <label>Transaction Type</label>
+    <select id="t_type" onchange="onTxnTypeChange()">
+      ${entityType==="card"
+        ? `<option value="purchase">Purchase (increases due)</option><option value="payment">Payment (reduces due)</option><option value="bill">Bill Generated (set statement)</option>`
+        : `<option value="credit">Credit (money in)</option><option value="debit">Debit (money out)</option>`}
+    </select>
+    <button class="icon-btn" style="margin-top:8px" onclick="openSmsParse('txn')">📋 Paste SMS to Auto-fill</button>
+    <label>Amount (₹)</label>
+    <input id="t_amount" type="number">
+    <label>Date</label>
+    <input id="t_date" type="date" value="${new Date().toISOString().slice(0,10)}">
+    <div id="t_billExtra" style="display:none">
+      <label>Minimum Due (₹)</label>
+      <input id="t_mindue" type="number">
+      <label>Due Date</label>
+      <input id="t_duedate" type="date">
+    </div>
+    <label>Note (optional)</label>
+    <input id="t_note" placeholder="e.g. Grocery, Salary credit">
+    <button class="btn primary" onclick="saveTxn('${entityType}')">Save Transaction</button>
+  </div>`;
+  openModalHTML(html);
+}
+function onTxnEntityChange(entityType){
+  const val = document.getElementById("t_entity").value;
+  document.getElementById("t_gate").style.display = val==="SELECT" ? "none":"block";
+  onTxnTypeChange();
+}
+function onTxnTypeChange(){
+  const type = document.getElementById("t_type").value;
+  const extra = document.getElementById("t_billExtra");
+  if(extra) extra.style.display = type==="bill" ? "block":"none";
+}
+async function saveTxn(entityType){
+  const entityId = +document.getElementById("t_entity").value;
+  if(!entityId){ alert("Please select an entity"); return; }
+  const type = document.getElementById("t_type").value;
+  const amount = +document.getElementById("t_amount").value || 0;
+  const date = document.getElementById("t_date").value;
+  const note = document.getElementById("t_note").value.trim();
+  if(amount<=0){ alert("Please enter a valid amount"); return; }
+
+  if(entityType==="card"){
+    const card = await dbGet("cards", entityId);
+    if(type==="purchase"){ card.utilised = (card.utilised||0)+amount; card.due = (card.due||0)+amount; }
+    else if(type==="payment"){ card.utilised = Math.max(0,(card.utilised||0)-amount); card.due = Math.max(0,(card.due||0)-amount); }
+    else if(type==="bill"){
+      card.due = amount;
+      card.mindue = +document.getElementById("t_mindue").value || 0;
+      card.duedate = document.getElementById("t_duedate").value || "";
+    }
+    await dbPut("cards", card);
+  } else {
+    const bank = await dbGet("banks", entityId);
+    if(type==="credit") bank.balance = (bank.balance||0)+amount;
+    else bank.balance = Math.max(0,(bank.balance||0)-amount);
+    await dbPut("banks", bank);
+  }
+  await dbPut("transactions", {entityType, entityId, txnType:type, amount, date, note, createdAt: Date.now()});
+  closeModal(); await renderAll();
+}
+
+let smsParseTarget = null;
+function openSmsParse(target){
+  if(target==="txn"){
+    const entVal = document.getElementById("t_entity").value;
+    if(entVal==="SELECT"){ alert("Please select the Card/Account first, then paste SMS."); return; }
+  }
+  smsParseTarget = target;
+  const html = `<button class="close-x" onclick="closeSmsParse()">✕</button>
+  <h3>📋 Paste SMS</h3>
+  <p class="small-note">Paste the latest bank/card SMS below. Amount &amp; date will be auto-detected.</p>
+  <textarea id="smsText" placeholder="Paste SMS here..."></textarea>
+  <button class="btn primary" onclick="parseSms()">Detect &amp; Fill</button>`;
+  document.getElementById("modalBody").insertAdjacentHTML("beforeend",
+    `<div id="smsOverlay" style="position:fixed;inset:0;background:var(--bg);z-index:60;padding:18px;">${html}</div>`);
+}
+function closeSmsParse(){
+  const ov = document.getElementById("smsOverlay");
+  if(ov) ov.remove();
+}
+function parseSms(){
+  const text = document.getElementById("smsText").value;
+  if(!text.trim()){ alert("Please paste an SMS first"); return; }
+  const amountRegex = /(?:Rs\.?|INR|₹)\s?([\d,]+(?:\.\d{1,2})?)/gi;
+  const dateRegex = /(\d{1,2}[-\/](?:\d{1,2}|[A-Za-z]{3})[-\/]\d{2,4})/;
+  let amounts = [...text.matchAll(amountRegex)].map(m=>m[1].replace(/,/g,""));
+  let dateMatch = text.match(dateRegex);
+
+  if(smsParseTarget==="txn"){
+    const type = document.getElementById("t_type").value;
+    let amt = amounts.length ? amounts[0] : "";
+    if(type==="bill"){
+      const dueMatch = text.match(/(?:total due|amount due|outstanding)[^\d₹Rs]*(?:Rs\.?|INR|₹)?\s?([\d,]+(?:\.\d{1,2})?)/i);
+      const minMatch = text.match(/min(?:imum)? due[^\d₹Rs]*(?:Rs\.?|INR|₹)?\s?([\d,]+(?:\.\d{1,2})?)/i);
+      if(dueMatch) document.getElementById("t_amount").value = dueMatch[1].replace(/,/g,"");
+      else if(amt) document.getElementById("t_amount").value = amt;
+      if(minMatch) document.getElementById("t_mindue").value = minMatch[1].replace(/,/g,"");
+      if(dateMatch){ const d=normalizeDate(dateMatch[1]); if(d) document.getElementById("t_duedate").value = d; }
+    } else {
+      if(amt) document.getElementById("t_amount").value = amt;
+      if(dateMatch){ const d=normalizeDate(dateMatch[1]); if(d) document.getElementById("t_date").value = d; }
+    }
+  }
+  closeSmsParse();
+  const st = document.getElementById("smsText"); if(st) st.value="";
+}
+function normalizeDate(raw){
+  try{
+    const parts = raw.split(/[-\/]/);
+    if(parts.length!==3) return null;
+    let [d,m,y] = parts;
+    if(isNaN(m)){
+      const months={jan:"01",feb:"02",mar:"03",apr:"04",may:"05",jun:"06",jul:"07",aug:"08",sep:"09",oct:"10",nov:"11",dec:"12"};
+      m = months[m.toLowerCase().slice(0,3)] || "01";
+    }
+    if(y.length===2) y = "20"+y;
+    d=d.padStart(2,"0"); m=String(m).padStart(2,"0");
+    return `${y}-${m}-${d}`;
+  }catch(e){ return null; }
+}
+
+function fmtMoney(n){ return "₹"+Number(n||0).toLocaleString("en-IN"); }
+function daysUntil(dateStr){
+  if(!dateStr) return null;
+  const diff = (new Date(dateStr) - new Date());
+  return Math.ceil(diff/(1000*60*60*24));
+}
+
+async function renderAll(){
+  const cards = await dbAll("cards");
+  const banks = await dbAll("banks");
+  const ids = await dbAll("ids");
+  const bills = await dbAll("bills");
+  const txns = await dbAll("transactions");
+
+  for(const c of cards) c._cardnoPlain = await decryptStr(c.cardno);
+  for(const b of banks) b._accnoPlain = await decryptStr(b.accno);
+  for(const i of ids) i._idnoPlain = await decryptStr(i.idno);
+
+  renderDashboard(cards, banks, bills, txns);
+  renderCards(cards);
+  renderBanks(banks);
+  renderIds(ids);
+  renderBills(bills);
+}
+
+function renderDashboard(cards, banks, bills, txns){
+  const totalDue = cards.reduce((s,c)=>s+(c.due||0),0);
+  const totalBal = banks.reduce((s,b)=>s+(b.balance||0),0);
+  document.querySelector('[data-reveal="cardDue"]').textContent = revealState["cardDue"] ? fmtMoney(totalDue) : "••••••";
+  document.querySelector('[data-reveal="bankBal"]').textContent = revealState["bankBal"] ? fmtMoney(totalBal) : "••••••";
+
+  const upcoming = cards.filter(c=>{ const d=daysUntil(c.duedate); return d!==null && d>=0 && d<=7; })
+    .sort((a,b)=>daysUntil(a.duedate)-daysUntil(b.duedate));
+  document.getElementById("upcomingDues").innerHTML = upcoming.length ? upcoming.map(c=>`
+    <div class="card"><div class="row"><span class="k">${c.bank} •••• ${c.cardnoLast4}</span>
+    <span class="tag due-soon">${daysUntil(c.duedate)}d left</span></div>
+    <div class="row"><span class="k">Due: ${c.duedate}</span><span class="v">${fmtMoney(c.due)}</span></div></div>`).join("")
+    : `<div class="empty">No card dues in the next 7 days 🎉</div>`;
+
+  const upcomingBills = bills.filter(b=>{ if(b.status==="Paid") return false; const d=daysUntil(b.duedate); return d!==null && d>=0 && d<=7; })
+    .sort((a,b)=>daysUntil(a.duedate)-daysUntil(b.duedate));
+  document.getElementById("upcomingBills").innerHTML = upcomingBills.length ? upcomingBills.map(b=>`
+    <div class="card"><div class="row"><span class="k">${BILL_ICON[b.billtype]||"📄"} ${b.billtype}${b.nickname?" • "+b.nickname:""}</span>
+    <span class="tag due-soon">${daysUntil(b.duedate)}d left</span></div>
+    <div class="row"><span class="k">Due: ${b.duedate}</span><span class="v">${fmtMoney(b.amount)}</span></div></div>`).join("")
+    : `<div class="empty">No bills due in the next 7 days 🎉</div>`;
+
+  const recent = [...txns].sort((a,b)=>(b.createdAt||0)-(a.createdAt||0)).slice(0,5);
+  document.getElementById("recentTxns").innerHTML = recent.length ? recent.map(t=>{
+    const label = t.entityType==="card" ? "Card" : "Bank";
+    const typeLabel = {purchase:"Purchase",payment:"Payment",bill:"Bill Generated",credit:"Credit",debit:"Debit"}[t.txnType]||t.txnType;
+    return `<div class="card"><div class="row"><span class="k">${label} • ${typeLabel}</span><span class="v">${fmtMoney(t.amount)}</span></div>
+    <div class="row"><span class="k">${t.date||""}</span><span class="k">${t.note||""}</span></div></div>`;
+  }).join("") : `<div class="empty">No transactions yet</div>`;
+
+  document.getElementById("dashCards").innerHTML = cards.length ? cards.map(c=>{
+    const cm = getCardMeta(c.cardtype);
+    return `<div class="card"><div class="row"><span class="k">${c.bank} <span class="badge" style="background:${cm.color}">${c.cardtype}</span></span><span class="v">•••• ${c.cardnoLast4}</span></div>
+    <div class="row"><span class="k">Utilised / Limit</span><span class="v">${fmtMoney(c.utilised)} / ${fmtMoney(c.limit)}</span></div></div>`;
+  }).join("") : `<div class="empty">No cards added yet</div>`;
+
+  document.getElementById("dashBanks").innerHTML = banks.length ? banks.map(b=>{
+    const bm = getBankMeta(b.bankname);
+    return `<div class="card"><div class="row"><span class="k"><span class="entity-emoji" style="background:${bm.color}22; display:inline-flex; width:22px; height:22px; font-size:13px;">${bm.emoji}</span> ${b.bankname}</span><span class="v">•••• ${b.accnoLast4}</span></div>
+    <div class="row"><span class="k">Balance</span><span class="v masked" data-key="bal${b.id}">${revealState["bal"+b.id]?fmtMoney(b.balance):"••••••"}</span></div></div>`;
+  }).join("") : `<div class="empty">No bank accounts added yet</div>`;
+}
+
+function renderCards(cards){
+  document.getElementById("cardsList").innerHTML = cards.length ? cards.map(c=>{
+    const cm = getCardMeta(c.cardtype);
+    const bm = getBankMeta(c.bank);
+    return `<div class="card" onclick="openForm('card', ${JSON.stringify(c).replace(/"/g,"&quot;")})">
+      <div class="entity-head">
+        <div class="entity-emoji" style="background:${bm.color}33">${bm.emoji}</div>
+        <div>
+          <div class="entity-title">${c.bank} <span class="badge" style="background:${cm.color}">${c.cardtype}</span></div>
+          <div class="entity-sub">Expiry: ${c.expiry||"-"}</div>
+        </div>
+      </div>
+      <div class="row"><span class="k">Card No.</span>
+        <span class="v masked" data-key="cardno${c.id}" onclick="event.stopPropagation(); toggleReveal('cardno${c.id}')">${revealState["cardno"+c.id]? c._cardnoPlain : "•••• •••• •••• "+c.cardnoLast4}</span></div>
+      <div class="row"><span class="k">Limit / Utilised</span><span class="v">${fmtMoney(c.limit)} / ${fmtMoney(c.utilised)}</span></div>
+      <div class="row"><span class="k">Available</span><span class="v">${fmtMoney((c.limit||0)-(c.utilised||0))}</span></div>
+      <div class="row"><span class="k">Total Due</span><span class="v">${fmtMoney(c.due)}</span></div>
+      <div class="row"><span class="k">Min Due</span><span class="v">${fmtMoney(c.mindue)}</span></div>
+      <div class="row"><span class="k">Due Date</span><span class="v">${c.duedate||"-"}</span></div>
+    </div>`;
+  }).join("") : `<div class="empty">No cards yet. Tap "+ New Card" to add one</div>`;
+}
+function renderBanks(banks){
+  document.getElementById("banksList").innerHTML = banks.length ? banks.map(b=>{
+    const bm = getBankMeta(b.bankname);
+    return `<div class="card" onclick="openForm('bank', ${JSON.stringify(b).replace(/"/g,"&quot;")})">
+      <div class="entity-head">
+        <div class="entity-emoji" style="background:${bm.color}33">${bm.emoji}</div>
+        <div>
+          <div class="entity-title">${b.bankname}</div>
+          <div class="entity-sub">${b.accname||""} • ${b.acctype||""}</div>
+        </div>
+      </div>
+      <div class="row"><span class="k">Account No.</span>
+        <span class="v masked" onclick="event.stopPropagation(); toggleReveal('accno${b.id}')">${revealState["accno"+b.id]? b._accnoPlain : "•••• "+b.accnoLast4}</span></div>
+      <div class="row"><span class="k">IFSC</span><span class="v">${b.ifsc||"-"}</span></div>
+      <div class="row"><span class="k">Branch</span><span class="v" style="text-align:right; max-width:60%;">${b.branchaddr||"-"}</span></div>
+      <div class="row"><span class="k">Phone</span><span class="v">${b.branchphone||"-"}</span></div>
+      <div class="row"><span class="k">Balance</span><span class="v masked" onclick="event.stopPropagation(); toggleReveal('bal${b.id}')">${revealState["bal"+b.id]?fmtMoney(b.balance):"••••••"}</span></div>
+    </div>`;
+  }).join("") : `<div class="empty">No bank accounts yet. Tap "+ New Account" to add one</div>`;
+}
+function renderIds(ids){
+  document.getElementById("idsList").innerHTML = ids.length ? ids.map(i=>`
+    <div class="card" onclick="openForm('id', ${JSON.stringify(i).replace(/"/g,"&quot;")})">
+      <div class="entity-head">
+        <div class="entity-emoji" style="background:#33415533">${ID_ICON[i.idtype]||"🪪"}</div>
+        <div class="entity-title">${i.idtype}</div>
+      </div>
+      <div class="row"><span class="k">ID No.</span>
+        <span class="v masked" onclick="event.stopPropagation(); toggleReveal('id${i.id}')">${revealState["id"+i.id]? i._idnoPlain : "•••• "+i.idnoLast4}</span></div>
+    </div>`).join("") : `<div class="empty">No IDs yet. Tap + to add one</div>`;
+}
+function renderBills(bills){
+  document.getElementById("billsList").innerHTML = bills.length ? bills.map(b=>`
+    <div class="card" onclick="openForm('bill', ${JSON.stringify(b).replace(/"/g,"&quot;")})">
+      <div class="entity-head">
+        <div class="entity-emoji" style="background:#33415533">${BILL_ICON[b.billtype]||"📄"}</div>
+        <div>
+          <div class="entity-title">${b.billtype}</div>
+          <div class="entity-sub">${b.nickname||""}</div>
+        </div>
+      </div>
+      <div class="row"><span class="k">Amount</span><span class="v">${fmtMoney(b.amount)}</span></div>
+      <div class="row"><span class="k">Due Date</span><span class="v">${b.duedate||"-"}</span></div>
+      <div class="row"><span class="k">Status</span><span class="tag ${b.status==="Paid"?"ok":"due-soon"}">${b.status}</span></div>
+    </div>`).join("") : `<div class="empty">No bills yet. Tap + to add one</div>`;
+}
+function toggleReveal(key){ revealState[key] = !revealState[key]; renderAll(); }
+
+async function exportData(){
+  const cards = await dbAll("cards");
+  const banks = await dbAll("banks");
+  const ids = await dbAll("ids");
+  const bills = await dbAll("bills");
+  const transactions = await dbAll("transactions");
+  const blob = new Blob([JSON.stringify({cards,banks,ids,bills,transactions},null,2)], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "vault-backup-encrypted.json";
+  a.click();
+  alert("Backup downloaded. Note: sensitive values are encrypted and only decryptable with this app + your PIN.");
+}
+async function wipeAll(){
+  if(!confirm("All data will be permanently deleted. Are you sure?")) return;
+  for(const store of ["cards","banks","ids","bills","transactions"]){
+    const all = await dbAll(store);
+    for(const r of all) await dbDelete(store, r.id);
+  }
+  localStorage.removeItem("vaultPinHash");
+  localStorage.removeItem("vaultSalt");
+  location.reload();
+}
+
+async function boot(){
+  await openDB();
+  await renderAll();
+  if("serviceWorker" in navigator){
+    navigator.serviceWorker.register("sw.js").catch(()=>{});
+  }
+}
+initPinScreen();
+</script>
+</body>
+</html>
