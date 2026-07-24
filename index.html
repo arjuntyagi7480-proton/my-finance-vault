@@ -980,6 +980,7 @@ function renderDashboard(cards, banks, bills, txns){
     const bm = getBankMeta(c.bank);
     return `<div class="card"><div class="row"><span class="k">${iconHTML("bank-logo", c.bank, bm.emoji, bm.color, 22)} ${c.bank} <span class="badge" style="background:${cm.color}">${c.cardtype}</span></span><span class="v">•••• ${c.cardnoLast4}</span></div>
     <div class="row"><span class="k">Utilised / Limit</span><span class="v">${fmtMoney(c.utilised)} / ${fmtMoney(c.limit)}</span></div>
+    <div class="row"><span class="k">Available${c.sharedGroup?" 🔗":""}</span><span class="v">${fmtMoney(groupAvailable(c, cards))}</span></div>
     <div class="row"><span class="k">Total Due</span><span class="v">${fmtMoney(c.due)}</span></div></div>`;
   }).join("") : `<div class="empty">No cards added yet</div>`;
 
