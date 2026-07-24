@@ -463,6 +463,9 @@ async function openForm(type, record){
     <input id="f_expiry" placeholder="00/00" maxlength="5" value="${record?record.expiry||"":""}">
     <label>Total Limit (₹)</label>
     <input id="f_limit" type="number" value="${record?record.limit||"":""}">
+    <label>Shares limit with another card? (optional)</label>
+    <input id="f_sharedgroup" value="${record?record.sharedGroup||"":""}" placeholder="e.g. HDFC-Combo (same text on both cards)">
+    <p class="small-note">If two cards share one combined limit (e.g. HDFC Visa + HDFC RuPay on the same ₹55,000), type the exact same text here on both cards. Leave blank for a normal independent-limit card.</p>
     ${record?`<div class="card" style="margin-top:14px; background:var(--card2);">
       <div class="row"><span class="k">Utilised</span><span class="v">${fmtMoney(record.utilised)}</span></div>
       <div class="row"><span class="k">Total Due</span><span class="v">${fmtMoney(record.due)}</span></div>
@@ -598,6 +601,7 @@ async function saveCard(){
     cardtype: document.getElementById("f_cardtype").value,
     expiry: document.getElementById("f_expiry").value,
     limit: +document.getElementById("f_limit").value || 0,
+    sharedGroup: document.getElementById("f_sharedgroup").value.trim(),
     utilised: existing ? existing.utilised||0 : 0,
     due: existing ? existing.due||0 : 0,
     mindue: existing ? existing.mindue||0 : 0,
@@ -692,6 +696,12 @@ async function openTxnForm(entityType){
     if(entityType==="card") r._label = `${r.bank} •••• ${r.cardnoLast4}`;
     else r._label = `${r.bankname}${r.accname?" ("+r.accname+")":""} •••• ${r.accnoLast4}`;
   }
+  let billOptionsHTML = "";
+  if(entityType==="bank"){
+    const unpaidBills = (await dbAll("bills")).filter(b=>b.status!=="Paid");
+    billOptionsHTML = `<option value="NONE" selected>-- Not linked to a bill --</option>` +
+      unpaidBills.map(b=>`<option value="${b.id}">${b.billtype}${b.nickname?" • "+b.nickname:""} (${fmtMoney(b.amount)})</option>`).join("");
+  }
   let html = `<button class="close-x" onclick="closeModal()">✕</button>
   <h3>Add Transaction — ${entityType==="card"?"Card":"Bank Account"}</h3>
   <label>Select ${entityType==="card"?"Card":"Account"}</label>
@@ -701,12 +711,17 @@ async function openTxnForm(entityType){
   </select>
   <div id="t_gate" style="display:none">
     <label>Transaction Type</label>
-    <select id="t_type">
+    <select id="t_type" onchange="onTxnTypeChange()">
       ${entityType==="card"
         ? `<option value="purchase">Purchase (increases due)</option><option value="payment">Payment (reduces due)</option>`
         : `<option value="credit">Credit (money in)</option><option value="debit">Debit (money out)</option>`}
     </select>
     <p class="small-note">${entityType==="card"?"To set a new statement (Total Due / Min Due / Due Date), add a \"Credit Card Bill\" from the Bills tab instead.":""}</p>
+    ${entityType==="bank"?`<div id="t_billLinkWrap" style="display:none">
+      <label>This payment is for (optional)</label>
+      <select id="t_billlink">${billOptionsHTML}</select>
+      <p class="small-note">Linking marks that bill Paid automatically. If it's a Credit Card Bill, the linked card's due &amp; utilised also reduce by this amount.</p>
+    </div>`:""}
     <button class="icon-btn" style="margin-top:8px" onclick="openSmsParse('txn')">📋 Paste SMS to Auto-fill</button>
     <label>Amount (₹)</label>
     <input id="t_amount" type="number">
@@ -717,6 +732,7 @@ async function openTxnForm(entityType){
     <button class="btn primary" onclick="saveTxn('${entityType}')">Save Transaction</button>
   </div>`;
   openModalHTML(html);
+  onTxnTypeChange();
 }
 function onTxnEntityChange(entityType){
   const val = document.getElementById("t_entity").value;
@@ -724,9 +740,10 @@ function onTxnEntityChange(entityType){
   onTxnTypeChange();
 }
 function onTxnTypeChange(){
-  const type = document.getElementById("t_type").value;
-  const extra = document.getElementById("t_billExtra");
-  if(extra) extra.style.display = type==="bill" ? "block":"none";
+  const typeEl = document.getElementById("t_type");
+  const type = typeEl ? typeEl.value : "";
+  const wrap = document.getElementById("t_billLinkWrap");
+  if(wrap) wrap.style.display = type==="debit" ? "block":"none";
 }
 async function saveTxn(entityType){
   const entityId = +document.getElementById("t_entity").value;
@@ -739,6 +756,22 @@ async function saveTxn(entityType){
 
   await applyTxnEffect(entityType, entityId, type, amount);
   await dbPut("transactions", {entityType, entityId, txnType:type, amount, date, note, createdAt: Date.now()});
+
+  if(entityType==="bank" && type==="debit"){
+    const billLinkEl = document.getElementById("t_billlink");
+    const billId = billLinkEl ? billLinkEl.value : "NONE";
+    if(billId && billId!=="NONE"){
+      const bill = await dbGet("bills", +billId);
+      if(bill){
+        bill.status = "Paid";
+        await dbPut("bills", bill);
+        if(bill.billtype==="Credit Card Bill" && bill.linkedCardId){
+          await applyTxnEffect("card", bill.linkedCardId, "payment", amount);
+          await dbPut("transactions", {entityType:"card", entityId:bill.linkedCardId, txnType:"payment", amount, date, note:`Paid via bank transfer${note?" — "+note:""}`, linkedBillId: bill.id, createdAt: Date.now()});
+        }
+      }
+    }
+  }
   closeModal(); await renderAll();
 }
 
@@ -964,6 +997,13 @@ function renderDashboard(cards, banks, bills, txns){
   }).join("") : `<div class="empty">No pending bills 🎉</div>`;
 }
 
+function groupAvailable(card, allCards){
+  if(!card.sharedGroup) return (card.limit||0)-(card.utilised||0);
+  const groupCards = allCards.filter(c=>c.sharedGroup && c.sharedGroup===card.sharedGroup);
+  const groupUtilised = groupCards.reduce((s,c)=>s+(c.utilised||0),0);
+  return (card.limit||0)-groupUtilised;
+}
+
 function renderCards(cards){
   document.getElementById("cardsList").innerHTML = cards.length ? cards.map(c=>{
     const cm = getCardMeta(c.cardtype);
@@ -973,13 +1013,13 @@ function renderCards(cards){
         ${iconHTML("bank-logo", c.bank, bm.emoji, bm.color, 34)}
         <div>
           <div class="entity-title">${c.bank} <span class="badge" style="background:${cm.color}">${c.cardtype}</span></div>
-          <div class="entity-sub">Expiry: ${c.expiry||"-"}</div>
+          <div class="entity-sub">Expiry: ${c.expiry||"-"}${c.sharedGroup?` • 🔗 Shares limit (${c.sharedGroup})`:""}</div>
         </div>
       </div>
       <div class="row"><span class="k">Card No.</span>
         <span class="v masked" data-key="cardno${c.id}" onclick="event.stopPropagation(); toggleReveal('cardno${c.id}')">${revealState["cardno"+c.id]? c._cardnoPlain : "•••• •••• •••• "+c.cardnoLast4}</span></div>
       <div class="row"><span class="k">Limit / Utilised</span><span class="v">${fmtMoney(c.limit)} / ${fmtMoney(c.utilised)}</span></div>
-      <div class="row"><span class="k">Available</span><span class="v">${fmtMoney((c.limit||0)-(c.utilised||0))}</span></div>
+      <div class="row"><span class="k">Available</span><span class="v">${fmtMoney(groupAvailable(c, cards))}</span></div>
       <div class="row"><span class="k">Total Due</span><span class="v">${fmtMoney(c.due)}</span></div>
       <div class="row"><span class="k">Min Due</span><span class="v">${fmtMoney(c.mindue)}</span></div>
       <div class="row"><span class="k">Due Date</span><span class="v">${c.duedate||"-"}</span></div>

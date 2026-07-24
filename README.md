@@ -18,7 +18,7 @@ This app can display real logo images instead of the built-in colored badges —
 Create these folders in the same place as `index.html` in your GitHub repo, and add PNG files named exactly like this (all lowercase, spaces/slashes replaced with a single dash):
 
 **`bank-logo/`** — filename = bank name, e.g.:
-`sbi.png`, `hdfc-bank.png`, `icici-bank.png`, `axis-bank.png`, `kotak-mahindra.png`, `pnb.png`, `bank-of-baroda.png`, `canara-bank.png`, `union-bank-of-india.png`, `idfc-first-bank.png`, `yes-bank.png`, `indusind-bank.png`, `rbl-bank.png`, `federal-bank.png`, `idbi-bank.png`, `bank-of-india.png`, `indian-bank.png`, `central-bank-of-india.png`, `au-small-finance-bank.png`, `roar-bank.png`, `standard-chartered.png`, `city-bank.png`, `hsbc.png`
+`sbi.png`, `hdfc-bank.png`, `icici-bank.png`, `axis-bank.png`, `kotak-mahindra.png`, `punjab-national-bank.png`, `bank-of-baroda.png`, `canara-bank.png`, `union-bank-of-india.png`, `idfc-first-bank.png`, `yes-bank.png`, `indusind-bank.png`, `rbl-bank.png`, `federal-bank.png`, `idbi-bank.png`, `bank-of-india.png`, `indian-bank.png`, `central-bank-of-india.png`, `au-small-finance-bank.png`, `roar-bank.png`
 
 **`id-logo/`** — filename = ID type, e.g.:
 `aadhar.png`, `pan.png`, `driving-license.png`, `birth-certificate.png`, `passport.png`, `voter-id.png`
