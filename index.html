@@ -1,319 +1,355 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PIN Entry</title>
-<style>
-  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Inter:wght@400;600&display=swap');
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PIN Entry - Finance Vault</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Inter:wght@400;600&display=swap');
 
-  :root {
-    --bg: #0a0a12;
-    --panel: #12121e;
-    --key-bg: #16182a;
-    --key-border: #2a2d4a;
-    --neon-pink: #e040fb;
-    --neon-blue: #29b6f6;
-    --neon-orange: #ff6d00;
-    --neon-purple: #7c4dff;
-    --text: #e8eaf6;
-    --muted: #7986cb;
-  }
+    :root {
+      --bg: #0a0a12;
+      --panel: #12121e;
+      --key-bg: #16182a;
+      --key-border: #2a2d4a;
+      --neon-pink: #e040fb;
+      --neon-blue: #29b6f6;
+      --neon-orange: #ff6d00;
+      --neon-purple: #7c4dff;
+      --text: #e8eaf6;
+      --muted: #7986cb;
+    }
 
-  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
 
-  body {
-    background: var(--bg);
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: 'Inter', sans-serif;
-    overflow: hidden;
-  }
+    body {
+      background: var(--bg);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Inter', sans-serif;
+      overflow: hidden;
+    }
 
-  /* Ambient glow background */
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background:
-      radial-gradient(ellipse 60% 40% at 20% 20%, rgba(224,64,251,0.08) 0%, transparent 70%),
-      radial-gradient(ellipse 60% 40% at 80% 80%, rgba(41,182,246,0.08) 0%, transparent 70%),
-      radial-gradient(ellipse 40% 30% at 80% 20%, rgba(255,109,0,0.06) 0%, transparent 60%);
-    pointer-events: none;
-  }
+    /* Ambient glow background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 60% 40% at 20% 20%, rgba(224, 64, 251, 0.08) 0%, transparent 70%),
+        radial-gradient(ellipse 60% 40% at 80% 80%, rgba(41, 182, 246, 0.08) 0%, transparent 70%),
+        radial-gradient(ellipse 40% 30% at 80% 20%, rgba(255, 109, 0, 0.06) 0%, transparent 60%);
+      pointer-events: none;
+    }
 
-  .vault-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 28px;
-    padding: 32px 24px;
-    width: 100%;
-    max-width: 360px;
-  }
+    .vault-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 28px;
+      padding: 32px 24px;
+      width: 100%;
+      max-width: 360px;
+      z-index: 1;
+    }
 
-  .vault-title {
-    font-family: 'Orbitron', monospace;
-    font-size: 13px;
-    font-weight: 700;
-    letter-spacing: 4px;
-    text-transform: uppercase;
-    color: var(--muted);
-  }
+    .vault-title {
+      font-family: 'Orbitron', monospace;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
 
-  .vault-label {
-    font-family: 'Orbitron', monospace;
-    font-size: 20px;
-    font-weight: 900;
-    color: var(--text);
-    letter-spacing: 2px;
-    text-align: center;
-  }
+    .vault-label {
+      font-family: 'Orbitron', monospace;
+      font-size: 20px;
+      font-weight: 900;
+      color: var(--text);
+      letter-spacing: 2px;
+      text-align: center;
+    }
 
-  /* PIN dots */
-  .pin-dots {
-    display: flex;
-    gap: 18px;
-  }
-  .pin-dot {
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    border: 2px solid var(--muted);
-    transition: all 0.15s ease;
-    position: relative;
-  }
-  .pin-dot.filled {
-    background: var(--neon-pink);
-    border-color: var(--neon-pink);
-    box-shadow: 0 0 10px var(--neon-pink), 0 0 20px rgba(224,64,251,0.4);
-    animation: dotPop 0.15s ease;
-  }
-  @keyframes dotPop {
-    0%   { transform: scale(0.6); }
-    60%  { transform: scale(1.2); }
-    100% { transform: scale(1); }
-  }
-  .pin-dot.error {
-    border-color: #ef5350;
-    background: #ef5350;
-    box-shadow: 0 0 10px #ef5350;
-    animation: shake 0.4s ease;
-  }
-  @keyframes shake {
-    0%,100% { transform: translateX(0); }
-    20%     { transform: translateX(-6px); }
-    40%     { transform: translateX(6px); }
-    60%     { transform: translateX(-4px); }
-    80%     { transform: translateX(4px); }
-  }
+    /* PIN dots */
+    .pin-dots {
+      display: flex;
+      gap: 18px;
+    }
 
-  /* Keypad */
-  .keypad {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 14px;
-    width: 100%;
-    /* Neon border around the whole keypad */
-    background: linear-gradient(135deg, var(--neon-pink), var(--neon-blue), var(--neon-orange), var(--neon-purple));
-    padding: 3px;
-    border-radius: 28px;
-    box-shadow:
-      0 0 30px rgba(224,64,251,0.2),
-      0 0 60px rgba(41,182,246,0.15),
-      inset 0 0 40px rgba(0,0,0,0.6);
-  }
-  .keypad-inner {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 14px;
-    padding: 20px;
-    background: var(--panel);
-    border-radius: 26px;
-    width: 100%;
-    grid-column: 1 / -1;
-  }
+    .pin-dot {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      border: 2px solid var(--muted);
+      transition: all 0.15s ease;
+      position: relative;
+    }
 
-  .key {
-    aspect-ratio: 1;
-    border-radius: 18px;
-    border: 1.5px solid var(--key-border);
-    background: var(--key-bg);
-    color: var(--text);
-    font-family: 'Orbitron', monospace;
-    font-size: 22px;
-    font-weight: 700;
-    cursor: pointer;
-    position: relative;
-    overflow: hidden;
-    transition: transform 0.1s ease, box-shadow 0.1s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    user-select: none;
-  }
+    .pin-dot.filled {
+      background: var(--neon-pink);
+      border-color: var(--neon-pink);
+      box-shadow: 0 0 10px var(--neon-pink), 0 0 20px rgba(224, 64, 251, 0.4);
+      animation: dotPop 0.15s ease;
+    }
 
-  /* Each key gets a unique neon tint */
-  .key[data-n="1"] { --kc: var(--neon-pink); }
-  .key[data-n="2"] { --kc: var(--neon-blue); }
-  .key[data-n="3"] { --kc: var(--neon-orange); }
-  .key[data-n="4"] { --kc: var(--neon-purple); }
-  .key[data-n="5"] { --kc: var(--neon-pink); }
-  .key[data-n="6"] { --kc: var(--neon-blue); }
-  .key[data-n="7"] { --kc: var(--neon-orange); }
-  .key[data-n="8"] { --kc: var(--neon-purple); }
-  .key[data-n="9"] { --kc: var(--neon-pink); }
-  .key[data-n="0"] { --kc: var(--neon-blue); }
-  .key.del        { --kc: #ef5350; }
+    @keyframes dotPop {
+      0% { transform: scale(0.6); }
+      60% { transform: scale(1.2); }
+      100% { transform: scale(1); }
+    }
 
-  .key::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    background: linear-gradient(135deg, rgba(255,255,255,0.04), transparent);
-    pointer-events: none;
-  }
+    .pin-dot.error {
+      border-color: #ef5350;
+      background: #ef5350;
+      box-shadow: 0 0 10px #ef5350;
+      animation: shake 0.4s ease;
+    }
 
-  .key:hover {
-    border-color: var(--kc);
-    box-shadow: 0 0 12px var(--kc), inset 0 0 8px rgba(255,255,255,0.03);
-    transform: translateY(-1px);
-  }
-  .key:active, .key.pressed {
-    transform: scale(0.92) translateY(1px);
-    box-shadow: 0 0 20px var(--kc), 0 0 40px rgba(255,255,255,0.05);
-    background: color-mix(in srgb, var(--kc) 15%, var(--key-bg));
-    border-color: var(--kc);
-  }
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20% { transform: translateX(-6px); }
+      40% { transform: translateX(6px); }
+      60% { transform: translateX(-4px); }
+      80% { transform: translateX(4px); }
+    }
 
-  /* The "8 sliding" animation on the active key */
-  .key.pressed .key-digit {
-    animation: slideOut 0.2s ease forwards;
-  }
-  @keyframes slideOut {
-    0%   { transform: translateX(0); opacity: 1; }
-    100% { transform: translateX(120%); opacity: 0; }
-  }
+    /* Keypad */
+    .keypad {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      width: 100%;
+      background: linear-gradient(135deg, var(--neon-pink), var(--neon-blue), var(--neon-orange), var(--neon-purple));
+      padding: 3px;
+      border-radius: 28px;
+      box-shadow:
+        0 0 30px rgba(224, 64, 251, 0.2),
+        0 0 60px rgba(41, 182, 246, 0.15),
+        inset 0 0 40px rgba(0, 0, 0, 0.6);
+    }
 
-  .key-empty {
-    aspect-ratio: 1;
-    background: transparent;
-    border: none;
-  }
+    .keypad-inner {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      padding: 20px;
+      background: var(--panel);
+      border-radius: 26px;
+      width: 100%;
+      grid-column: 1 / -1;
+    }
 
-  .key.del {
-    font-size: 18px;
-    color: #ef5350;
-  }
+    .key {
+      aspect-ratio: 1;
+      border-radius: 18px;
+      border: 1.5px solid var(--key-border);
+      background: var(--key-bg);
+      color: var(--text);
+      font-family: 'Orbitron', monospace;
+      font-size: 22px;
+      font-weight: 700;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.1s ease, box-shadow 0.1s ease, border-color 0.1s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+      outline: none;
+    }
 
-  .error-msg {
-    font-size: 12px;
-    color: #ef5350;
-    letter-spacing: 1px;
-    min-height: 16px;
-    font-family: 'Inter', sans-serif;
-    text-align: center;
-  }
+    .key[data-n="1"] { --kc: var(--neon-pink); }
+    .key[data-n="2"] { --kc: var(--neon-blue); }
+    .key[data-n="3"] { --kc: var(--neon-orange); }
+    .key[data-n="4"] { --kc: var(--neon-purple); }
+    .key[data-n="5"] { --kc: var(--neon-pink); }
+    .key[data-n="6"] { --kc: var(--neon-blue); }
+    .key[data-n="7"] { --kc: var(--neon-orange); }
+    .key[data-n="8"] { --kc: var(--neon-purple); }
+    .key[data-n="9"] { --kc: var(--neon-pink); }
+    .key[data-n="0"] { --kc: var(--neon-blue); }
+    .key.del { --kc: #ef5350; }
 
-  .hint {
-    font-size: 11px;
-    color: var(--muted);
-    letter-spacing: 0.5px;
-    text-align: center;
-  }
-</style>
+    .key::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.04), transparent);
+      pointer-events: none;
+    }
+
+    .key:hover {
+      border-color: var(--kc);
+      box-shadow: 0 0 12px var(--kc), inset 0 0 8px rgba(255, 255, 255, 0.03);
+      transform: translateY(-1px);
+    }
+
+    .key:active, .key.pressed {
+      transform: scale(0.92) translateY(1px);
+      box-shadow: 0 0 20px var(--kc), 0 0 40px rgba(255, 255, 255, 0.05);
+      background: color-mix(in srgb, var(--kc) 15%, var(--key-bg));
+      border-color: var(--kc);
+    }
+
+    .key-empty {
+      aspect-ratio: 1;
+      background: transparent;
+      border: none;
+    }
+
+    .key.del {
+      font-size: 18px;
+      color: #ef5350;
+    }
+
+    .error-msg {
+      font-size: 13px;
+      font-weight: 600;
+      color: #ef5350;
+      letter-spacing: 1px;
+      min-height: 18px;
+      font-family: 'Inter', sans-serif;
+      text-align: center;
+    }
+
+    .hint {
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 0.5px;
+      text-align: center;
+    }
+  </style>
 </head>
 <body>
 
-<div class="vault-container">
-  <div class="vault-title">My Finance Vault</div>
-  <div class="vault-label">Enter PIN</div>
+  <div class="vault-container">
+    <div class="vault-title">My Finance Vault</div>
+    <div class="vault-label">Enter PIN</div>
 
-  <div class="pin-dots" id="pinDots"></div>
-  <div class="error-msg" id="errMsg"></div>
+    <div class="pin-dots" id="pinDots"></div>
+    <div class="error-msg" id="errMsg"></div>
 
-  <div class="keypad">
-    <div class="keypad-inner" id="keypad"></div>
+    <div class="keypad">
+      <div class="keypad-inner" id="keypad"></div>
+    </div>
+
+    <div class="hint">Tap numbers or use keyboard to unlock</div>
   </div>
 
-  <div class="hint">Tap a number to unlock</div>
-</div>
+  <script>
+    let pin = "";
+    const CORRECT = "1234"; // Default Demo PIN
+    const keyMap = {};
 
-<script>
-  let pin = "";
-  const CORRECT = "1234"; // demo PIN
-
-  function renderDots(){
-    const el = document.getElementById("pinDots");
-    el.innerHTML = "";
-    for(let i=0;i<4;i++){
-      const d = document.createElement("div");
-      d.className = "pin-dot" + (i<pin.length?" filled":"");
-      el.appendChild(d);
+    function renderDots() {
+      const el = document.getElementById("pinDots");
+      el.innerHTML = "";
+      for (let i = 0; i < 4; i++) {
+        const d = document.createElement("div");
+        d.className = "pin-dot" + (i < pin.length ? " filled" : "");
+        el.appendChild(d);
+      }
     }
-  }
 
-  function renderKeypad(){
-    const kp = document.getElementById("keypad");
-    kp.innerHTML = "";
-    const layout = ["1","2","3","4","5","6","7","8","9","","0","⌫"];
-    layout.forEach(k=>{
-      if(k===""){
-        const empty = document.createElement("div");
-        empty.className = "key-empty";
-        kp.appendChild(empty);
+    function renderKeypad() {
+      const kp = document.getElementById("keypad");
+      kp.innerHTML = "";
+      const layout = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "⌫"];
+      
+      layout.forEach(k => {
+        if (k === "") {
+          const empty = document.createElement("div");
+          empty.className = "key-empty";
+          kp.appendChild(empty);
+          return;
+        }
+        const btn = document.createElement("button");
+        btn.className = "key" + (k === "⌫" ? " del" : "");
+        if (k !== "⌫") btn.dataset.n = k;
+        btn.innerHTML = `<span class="key-digit">${k}</span>`;
+        btn.addEventListener("pointerdown", () => handleKey(k, btn));
+        kp.appendChild(btn);
+        
+        keyMap[k] = btn;
+      });
+    }
+
+    function handleKey(k, btn) {
+      document.getElementById("errMsg").textContent = "";
+      
+      if (btn) {
+        btn.classList.add("pressed");
+        setTimeout(() => { btn.classList.remove("pressed"); }, 200);
+      }
+
+      if (k === "⌫" || k === "Backspace") {
+        pin = pin.slice(0, -1);
+        renderDots();
         return;
       }
-      const btn = document.createElement("button");
-      btn.className = "key" + (k==="⌫"?" del":"");
-      if(k!=="⌫") btn.dataset.n = k;
-      btn.innerHTML = `<span class="key-digit">${k}</span>`;
-      btn.addEventListener("pointerdown", ()=> handleKey(k, btn));
-      kp.appendChild(btn);
-    });
-  }
 
-  function handleKey(k, btn){
-    document.getElementById("errMsg").textContent = "";
-    btn.classList.add("pressed");
-    setTimeout(()=>{ btn.classList.remove("pressed"); }, 200);
-
-    if(k==="⌫"){
-      pin = pin.slice(0,-1);
+      if (pin.length >= 4) return;
+      
+      pin += k;
       renderDots();
-      return;
+
+      if (pin.length === 4) {
+        setTimeout(checkPin, 180);
+      }
     }
-    if(pin.length>=4) return;
-    pin += k;
+
+    function checkPin() {
+      const dots = document.getElementById("pinDots").querySelectorAll(".pin-dot");
+      const errEl = document.getElementById("errMsg");
+
+      if (pin === CORRECT) {
+        dots.forEach(d => {
+          d.style.background = "var(--neon-blue)";
+          d.style.borderColor = "var(--neon-blue)";
+          d.style.boxShadow = "0 0 10px var(--neon-blue), 0 0 20px rgba(41, 182, 246, 0.4)";
+        });
+        errEl.style.color = "#66bb6a";
+        errEl.textContent = "✓ Unlocked";
+
+        setTimeout(() => {
+          pin = "";
+          renderDots();
+          errEl.textContent = "";
+        }, 1500);
+      } else {
+        dots.forEach(d => d.classList.add("error"));
+        errEl.style.color = "#ef5350";
+        errEl.textContent = "Incorrect PIN — try again";
+
+        setTimeout(() => {
+          pin = "";
+          renderDots();
+          errEl.textContent = "";
+        }, 800);
+      }
+    }
+
+    // Keyboard Listener
+    window.addEventListener("keydown", (e) => {
+      if (e.key >= "0" && e.key <= "9") {
+        handleKey(e.key, keyMap[e.key]);
+      } else if (e.key === "Backspace" || e.key === "Delete") {
+        handleKey("⌫", keyMap["⌫"]);
+      }
+    });
+
     renderDots();
-    if(pin.length===4) setTimeout(checkPin, 180);
-  }
-
-  function checkPin(){
-    if(pin === CORRECT){
-      document.getElementById("pinDots").querySelectorAll(".pin-dot").forEach(d=>{
-        d.style.background = "var(--neon-blue)";
-        d.style.borderColor = "var(--neon-blue)";
-        d.style.boxShadow = "0 0 10px var(--neon-blue), 0 0 20px rgba(41,182,246,0.4)";
-      });
-      document.getElementById("errMsg").style.color = "#66bb6a";
-      document.getElementById("errMsg").textContent = "✓ Unlocked";
-      setTimeout(()=>{ pin=""; renderDots(); document.getElementById("errMsg").textContent=""; }, 1200);
-    } else {
-      document.getElementById("pinDots").querySelectorAll(".pin-dot").forEach(d=>d.classList.add("error"));
-      document.getElementById("errMsg").textContent = "Incorrect PIN — try again";
-      setTimeout(()=>{
-        pin=""; renderDots();
-        document.getElementById("errMsg").textContent="";
-      }, 700);
-    }
-  }
-
-  renderDots();
-  renderKeypad();
-</script>
+    renderKeypad();
+  </script>
 </body>
 </html>
