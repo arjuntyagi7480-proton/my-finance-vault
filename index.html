@@ -474,6 +474,7 @@ async function openForm(type, record){
       <p class="small-note">These fields are managed automatically via Transactions.</p>
     </div>`:""}
     <button class="btn primary" onclick="saveCard()">Save</button>
+    ${record?`<button class="btn secondary" onclick="openReconcile('card',${record.id})">⚖️ Reconcile Balance</button>`:""}
     ${record?`<button class="btn danger" onclick="deleteRecord('cards',${record.id})">Delete</button>`:""}
     ${record?await renderTxnHistoryHTML("card", record.id):""}`;
   } else if(type==="bank"){
@@ -501,6 +502,7 @@ async function openForm(type, record){
     <label>Available Balance (₹)${record?" (managed via Transactions)":""}</label>
     <input id="f_balance" type="number" value="${record?record.balance||0:""}" ${record?"disabled":""}>
     <button class="btn primary" onclick="saveBank()">Save</button>
+    ${record?`<button class="btn secondary" onclick="openReconcile('bank',${record.id})">⚖️ Reconcile Balance</button>`:""}
     ${record?`<button class="btn danger" onclick="deleteRecord('banks',${record.id})">Delete</button>`:""}
     ${record?await renderTxnHistoryHTML("bank", record.id):""}`;
   } else if(type==="id"){
@@ -824,6 +826,59 @@ async function renderTxnHistoryHTML(entityType, entityId){
         <button class="btn small danger" onclick="deleteTxn(${t.id})">Delete</button>
       </div>
     </div>`).join("");
+}
+async function openReconcile(entityType, entityId){
+  const entity = await dbGet(entityType==="card"?"cards":"banks", entityId);
+  if(!entity) return;
+  let html = `<button class="close-x" onclick="closeModal()">✕</button><h3>⚖️ Reconcile Balance</h3>`;
+  if(entityType==="card"){
+    html += `<p class="small-note">Enter the actual current values from your bank SMS or app. The difference will be saved as an adjustment transaction.</p>
+    <label>Actual Current Utilised (₹)</label>
+    <p class="small-note" style="margin:0">App shows: <b>${fmtMoney(entity.utilised)}</b></p>
+    <input id="rc_utilised" type="number" placeholder="Enter actual utilised amount">
+    <label>Actual Total Due (₹)</label>
+    <p class="small-note" style="margin:0">App shows: <b>${fmtMoney(entity.due)}</b></p>
+    <input id="rc_due" type="number" placeholder="Enter actual due amount (0 if paid)">
+    <button class="btn primary" onclick="saveReconcile('card',${entityId})">Apply Correction</button>`;
+  } else {
+    html += `<p class="small-note">Enter the actual current balance from your bank SMS or app. The difference will be saved as an adjustment transaction.</p>
+    <label>Actual Current Balance (₹)</label>
+    <p class="small-note" style="margin:0">App shows: <b>${fmtMoney(entity.balance)}</b></p>
+    <input id="rc_balance" type="number" placeholder="Enter actual balance">
+    <button class="btn primary" onclick="saveReconcile('bank',${entityId})">Apply Correction</button>`;
+  }
+  openModalHTML(html);
+}
+
+async function saveReconcile(entityType, entityId){
+  const today = new Date().toISOString().slice(0,10);
+  if(entityType==="card"){
+    const card = await dbGet("cards", entityId);
+    const newUtilised = parseFloat(document.getElementById("rc_utilised").value);
+    const newDue = parseFloat(document.getElementById("rc_due").value);
+    if(isNaN(newUtilised) && isNaN(newDue)){ alert("Enter at least one value to correct"); return; }
+    if(!isNaN(newUtilised)){
+      const diff = newUtilised - (card.utilised||0);
+      if(diff!==0){
+        await dbPut("transactions",{entityType:"card", entityId, txnType: diff>0?"purchase":"payment", amount:Math.abs(diff), date:today, note:"Balance reconciliation (utilised correction)", createdAt:Date.now()});
+        card.utilised = Math.max(0, newUtilised);
+      }
+    }
+    if(!isNaN(newDue)) card.due = Math.max(0, newDue);
+    await dbPut("cards", card);
+  } else {
+    const bank = await dbGet("banks", entityId);
+    const newBal = parseFloat(document.getElementById("rc_balance").value);
+    if(isNaN(newBal)){ alert("Enter the actual balance"); return; }
+    const diff = newBal - (bank.balance||0);
+    if(diff!==0){
+      await dbPut("transactions",{entityType:"bank", entityId, txnType: diff>0?"credit":"debit", amount:Math.abs(diff), date:today, note:"Balance reconciliation", createdAt:Date.now()});
+    }
+    bank.balance = Math.max(0, newBal);
+    await dbPut("banks", bank);
+  }
+  closeModal(); await renderAll();
+  alert("✅ Balance reconciled successfully.");
 }
 async function openTxnEditForm(txnId){
   const txn = await dbGet("transactions", txnId);
