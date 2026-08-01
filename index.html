@@ -6,6 +6,8 @@
 <title>My Finance Vault</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0f172a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
 <style>
   :root{
     --bg:#0f172a; --card:#1e293b; --card2:#273549; --accent:#38bdf8; --accent2:#22c55e;
@@ -58,13 +60,32 @@
   .modal-bg.active{display:flex;}
   .modal{background:var(--card); width:100%; max-height:85vh; overflow-y:auto; border-radius:20px 20px 0 0; padding:18px;}
   .empty{text-align:center; color:var(--muted); padding:40px 10px; font-size:13px;}
-  .pinscreen{position:fixed; inset:0; background:var(--bg); z-index:100; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:20px;}
-  .pindots{display:flex; gap:14px; margin:20px 0;}
-  .pindot{width:14px; height:14px; border-radius:50%; border:2px solid var(--accent);}
-  .pindot.filled{background:var(--accent);}
-  .keypad{display:grid; grid-template-columns:repeat(3,70px); gap:14px; margin-top:10px;}
-  .key{width:70px; height:70px; border-radius:50%; background:var(--card2); color:var(--text); font-size:22px; border:1px solid var(--border);}
-  .key.wide{background:none; border:none; color:var(--muted); font-size:14px;}
+  .pinscreen{position:fixed; inset:0; background:#0a0a12; z-index:100; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:20px; overflow:hidden;}
+  .pinscreen::before{content:'';position:absolute;inset:0;background:
+      radial-gradient(ellipse 60% 40% at 20% 20%, rgba(224,64,251,0.10) 0%, transparent 70%),
+      radial-gradient(ellipse 60% 40% at 80% 80%, rgba(41,182,246,0.10) 0%, transparent 70%),
+      radial-gradient(ellipse 40% 30% at 80% 20%, rgba(255,109,0,0.07) 0%, transparent 60%);
+    pointer-events:none;}
+  #pinTitle{font-family:'Orbitron',monospace; font-size:15px; letter-spacing:2px; position:relative;}
+  #pinSub{position:relative;}
+  .pindots{display:flex; gap:18px; margin:22px 0; position:relative;}
+  .pindot{width:16px; height:16px; border-radius:50%; border:2px solid #7986cb; transition:all .15s ease;}
+  .pindot.filled{background:#e040fb; border-color:#e040fb; box-shadow:0 0 10px #e040fb, 0 0 20px rgba(224,64,251,.4); animation:dotPop .15s ease;}
+  .pindot.error{border-color:#ef5350; background:#ef5350; box-shadow:0 0 10px #ef5350; animation:pinShake .4s ease;}
+  @keyframes dotPop{0%{transform:scale(.6);}60%{transform:scale(1.2);}100%{transform:scale(1);}}
+  @keyframes pinShake{0%,100%{transform:translateX(0);}20%{transform:translateX(-6px);}40%{transform:translateX(6px);}60%{transform:translateX(-4px);}80%{transform:translateX(4px);}}
+  .keypad{display:grid; grid-template-columns:repeat(3,72px); gap:14px; margin-top:14px; position:relative;
+    background:linear-gradient(135deg,#e040fb,#29b6f6,#ff6d00,#7c4dff); padding:3px; border-radius:26px;
+    box-shadow:0 0 30px rgba(224,64,251,.2), 0 0 60px rgba(41,182,246,.15);}
+  .keypad-bg{display:grid; grid-template-columns:repeat(3,72px); gap:14px; background:#12121e; border-radius:24px; padding:18px; grid-column:1/-1;}
+  .key{width:72px; height:72px; border-radius:18px; background:#16182a; color:#e8eaf6; font-family:'Orbitron',monospace; font-size:22px; font-weight:700; border:1.5px solid #2a2d4a; transition:transform .1s ease, box-shadow .1s ease; position:relative; overflow:hidden;}
+  .key:nth-child(3n+1){--kc:#e040fb;} .key:nth-child(3n+2){--kc:#29b6f6;} .key:nth-child(3n){--kc:#ff6d00;}
+  .key.pressed{transform:scale(.90); box-shadow:0 0 18px var(--kc), 0 0 34px rgba(255,255,255,.06); border-color:var(--kc); background:#1c1e34;}
+  .key.wide{background:none; border:none; box-shadow:none;}
+  .key.del{--kc:#ef5350; font-size:18px; color:#ef5350;}
+  .key-digit{display:inline-block; transition:transform .18s ease, opacity .18s ease;}
+  .key.pressed .key-digit{transform:translateX(90%); opacity:0;}
+  .keypad-hint{font-size:11px; color:#7986cb; letter-spacing:.5px; margin-top:14px; position:relative;}
   .close-x{position:absolute; top:14px; right:16px; color:var(--muted); font-size:22px; background:none; border:none;}
   .small-note{font-size:11px; color:var(--muted); margin-top:6px;}
   .icon-btn{background:var(--card2); border:1px solid var(--border); color:var(--accent); border-radius:8px; padding:8px 10px; font-size:12px;}
@@ -80,8 +101,9 @@
   <h2 id="pinTitle">Unlock Vault</h2>
   <p class="small-note" id="pinSub">Enter your 4-digit PIN</p>
   <div class="pindots" id="pinDots"></div>
-  <div class="keypad" id="keypad"></div>
+  <div class="keypad"><div class="keypad-bg" id="keypad"></div></div>
   <p class="small-note" id="pinError" style="color:var(--danger); min-height:16px;"></p>
+  <p class="keypad-hint">Tap a number to continue</p>
 </div>
 
 <header>
@@ -312,19 +334,29 @@ function renderKeypad(){
   const keys=["1","2","3","4","5","6","7","8","9","","0","⌫"];
   keys.forEach(k=>{
     const b=document.createElement("button");
-    b.className = k===""?"key wide":"key";
-    b.textContent=k;
-    if(k!=="") b.onclick=()=>pinPress(k);
+    b.className = k===""?"key wide":(k==="⌫"?"key del":"key");
+    b.innerHTML = k==="" ? "" : `<span class="key-digit">${k}</span>`;
+    if(k!=="") b.onclick=()=>pinPress(k,b);
     kp.appendChild(b);
   });
 }
-function pinPress(k){
+function pinPress(k, btn){
   document.getElementById("pinError").textContent="";
+  if(btn){
+    btn.classList.add("pressed");
+    setTimeout(()=>btn.classList.remove("pressed"), 180);
+  }
   if(k==="⌫"){ pinBuffer = pinBuffer.slice(0,-1); renderPinDots(); return; }
   if(pinBuffer.length>=4) return;
   pinBuffer += k;
   renderPinDots();
   if(pinBuffer.length===4) setTimeout(handlePinComplete, 150);
+}
+function shakePinDots(){
+  document.querySelectorAll("#pinDots .pindot").forEach(d=>d.classList.add("error"));
+  setTimeout(()=>{
+    document.querySelectorAll("#pinDots .pindot").forEach(d=>d.classList.remove("error"));
+  }, 400);
 }
 async function handlePinComplete(){
   const savedHash = localStorage.getItem("vaultPinHash");
@@ -332,11 +364,18 @@ async function handlePinComplete(){
     const hash = await sha256(pinBuffer);
     if(hash===savedHash){
       CRYPTO_KEY = await deriveKey(pinBuffer, localStorage.getItem("vaultSalt"));
-      document.getElementById("pinScreen").style.display="none";
-      boot();
+      document.querySelectorAll("#pinDots .pindot").forEach(d=>{
+        d.style.background="#29b6f6"; d.style.borderColor="#29b6f6";
+        d.style.boxShadow="0 0 10px #29b6f6, 0 0 20px rgba(41,182,246,.4)";
+      });
+      setTimeout(()=>{
+        document.getElementById("pinScreen").style.display="none";
+        boot();
+      }, 180);
     } else {
       document.getElementById("pinError").textContent="Incorrect PIN, try again";
-      pinBuffer=""; renderPinDots();
+      shakePinDots();
+      setTimeout(()=>{ pinBuffer=""; renderPinDots(); }, 400);
     }
   } else if(pinMode==="setup"){
     firstPin = pinBuffer; pinBuffer="";
@@ -352,9 +391,12 @@ async function handlePinComplete(){
       boot();
     } else {
       document.getElementById("pinError").textContent="PIN did not match, set again";
-      pinBuffer=""; firstPin=""; pinMode="setup";
-      document.getElementById("pinSub").textContent="Set a new 4-digit PIN";
-      renderPinDots();
+      shakePinDots();
+      setTimeout(()=>{
+        pinBuffer=""; firstPin=""; pinMode="setup";
+        document.getElementById("pinSub").textContent="Set a new 4-digit PIN";
+        renderPinDots();
+      }, 400);
     }
   } else if(pinMode==="change-old"){
     const hash = await sha256(pinBuffer);
@@ -364,7 +406,8 @@ async function handlePinComplete(){
       renderPinDots();
     } else {
       document.getElementById("pinError").textContent="Old PIN incorrect";
-      pinBuffer=""; renderPinDots();
+      shakePinDots();
+      setTimeout(()=>{ pinBuffer=""; renderPinDots(); }, 400);
     }
   } else if(pinMode==="change-new"){
     firstPin = pinBuffer; pinBuffer="";
@@ -381,8 +424,8 @@ async function handlePinComplete(){
       location.reload();
     } else {
       document.getElementById("pinError").textContent="PIN did not match";
-      pinBuffer=""; pinMode="change-new";
-      renderPinDots();
+      shakePinDots();
+      setTimeout(()=>{ pinBuffer=""; pinMode="change-new"; renderPinDots(); }, 400);
     }
   }
 }
