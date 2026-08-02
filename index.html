@@ -161,6 +161,9 @@
   <div class="card">
     <button class="btn secondary" onclick="changePin()">🔑 Change PIN</button>
     <button class="btn secondary" onclick="exportData()">⬇️ Export Backup (JSON)</button>
+    <button class="btn secondary" onclick="triggerImport()">⬆️ Restore Backup (JSON)</button>
+    <input type="file" id="importFileInput" accept="application/json" style="display:none" onchange="importData(this)">
+    <p class="small-note">Restoring only works fully if you enter the exact same PIN you used when the backup was created.</p>
     <button class="btn danger" onclick="wipeAll()">🗑️ Delete All Data</button>
   </div>
 </div>
@@ -1181,12 +1184,46 @@ async function exportData(){
   const ids = await dbAll("ids");
   const bills = await dbAll("bills");
   const transactions = await dbAll("transactions");
-  const blob = new Blob([JSON.stringify({cards,banks,ids,bills,transactions},null,2)], {type:"application/json"});
+  const salt = localStorage.getItem("vaultSalt") || "";
+  const blob = new Blob([JSON.stringify({cards,banks,ids,bills,transactions,salt},null,2)], {type:"application/json"});
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = "vault-backup-encrypted.json";
   a.click();
-  alert("Backup downloaded. Note: sensitive values are encrypted and only decryptable with this app + your PIN.");
+  alert("Backup downloaded. Note: sensitive values are encrypted and only decryptable with this exact app + the same PIN you used when this backup was made.");
+}
+function triggerImport(){
+  document.getElementById("importFileInput").click();
+}
+async function importData(fileInput){
+  const file = fileInput.files[0];
+  if(!file) return;
+  if(!confirm("This will add/overwrite records from the backup file into this app. Continue?")) return;
+  try{
+    const text = await file.text();
+    const data = JSON.parse(text);
+    const stores = ["cards","banks","ids","bills","transactions"];
+    let restoredCount = 0;
+    for(const store of stores){
+      if(Array.isArray(data[store])){
+        for(const rec of data[store]){
+          await dbPut(store, rec);
+          restoredCount++;
+        }
+      }
+    }
+    if(data.salt){
+      localStorage.setItem("vaultSalt", data.salt);
+      alert(`Restored ${restoredCount} records. IMPORTANT: the app will now reload. Enter the EXACT SAME PIN you were using when this backup was created — otherwise the card/account/ID numbers won't decrypt correctly (amounts and dates will still be fine either way).`);
+      location.reload();
+    } else {
+      alert(`Restored ${restoredCount} records. This backup had no salt info — if numbers show "Decrypt Error", it means the PIN used now differs from when the backup was made.`);
+      await renderAll();
+    }
+  }catch(e){
+    alert("Could not read this file — please make sure it's a valid Vault backup JSON exported from this app.");
+  }
+  fileInput.value = "";
 }
 async function wipeAll(){
   if(!confirm("All data will be permanently deleted. Are you sure?")) return;
