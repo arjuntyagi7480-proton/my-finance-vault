@@ -114,12 +114,20 @@
 <div class="screen active" id="screen-dashboard">
   <div class="summary-grid">
     <div class="summary-box">
-      <div class="label">Total Card Due</div>
-      <div class="value masked" data-reveal="cardDue">••••••</div>
+      <div class="label">Total Remaining Limit</div>
+      <div class="value masked" data-reveal="remLimit">••••••</div>
     </div>
     <div class="summary-box">
-      <div class="label">Total Bank Balance</div>
-      <div class="value masked" data-reveal="bankBal">••••••</div>
+      <div class="label">Total Utilised</div>
+      <div class="value masked" data-reveal="totalUtil">••••••</div>
+    </div>
+    <div class="summary-box">
+      <div class="label">Credit Card Bills Due</div>
+      <div class="value masked" data-reveal="ccBillsDue">••••••</div>
+    </div>
+    <div class="summary-box">
+      <div class="label">Other Bills Due</div>
+      <div class="value masked" data-reveal="otherBillsDue">••••••</div>
     </div>
   </div>
   <h2>📇 Cards Overview</h2>
@@ -139,6 +147,10 @@
 
 <div class="screen" id="screen-banks">
   <h2>Bank Accounts</h2>
+  <div class="summary-box" style="margin-bottom:14px;">
+    <div class="label">Total Bank Balance</div>
+    <div class="value masked" data-reveal="bankBal">••••••</div>
+  </div>
   <div class="btn-row">
     <button class="btn primary" style="flex:1" onclick="openForm('bank', null)">+ New Account</button>
     <button class="btn green" style="flex:1" onclick="openTxnForm('bank')">💰 Add Transaction</button>
@@ -224,7 +236,7 @@ function iconHTML(folder, key, fallbackEmoji, bgColor, size){
   size = size || 34;
   const path = `${folder}/${slug(key)}.png`;
   return `<span class="entity-emoji" style="width:${size}px;height:${size}px;background:${bgColor}33;font-size:${Math.round(size*0.53)}px;">
-    <img src="${path}" alt="" style="width:100%;height:100%;object-fit:contain;border-radius:8px;display:block;" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-flex';">
+    <img src="${path}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:contain;border-radius:8px;display:block;" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-flex';">
     <span style="display:none; width:100%; height:100%; align-items:center; justify-content:center;">${fallbackEmoji}</span>
   </span>`;
 }
@@ -480,7 +492,7 @@ document.addEventListener("click", e=>{
   if(e.target.classList.contains("masked")){
     const key = e.target.dataset.reveal || e.target.dataset.key;
     revealState[key] = !revealState[key];
-    renderAll();
+    renderFromCache();
   }
 });
 
@@ -716,7 +728,8 @@ async function saveBill(){
     mindue: mindue,
   };
   if(currentEditId) obj.id = currentEditId;
-  await dbPut("bills", obj);
+  const savedId = await dbPut("bills", obj);
+  if(currentEditId) obj.id = currentEditId; else obj.id = savedId;
   if(isCC && linkedCardId){
     const card = await dbGet("cards", linkedCardId);
     if(card){
@@ -725,6 +738,10 @@ async function saveBill(){
       card.duedate = duedate;
       await dbPut("cards", card);
     }
+  }
+  if(!isCC && obj.status==="Paid" && obj.recurring==="Monthly" && obj.duedate){
+    const rolled = {...obj, status:"Unpaid", duedate: addOneMonth(obj.duedate)};
+    await dbPut("bills", rolled);
   }
   closeModal(); await renderAll();
 }
@@ -816,6 +833,8 @@ async function saveTxn(entityType){
         if(bill.billtype==="Credit Card Bill" && bill.linkedCardId){
           await applyTxnEffect("card", bill.linkedCardId, "payment", amount);
           await dbPut("transactions", {entityType:"card", entityId:bill.linkedCardId, txnType:"payment", amount, date, note:`Paid via bank transfer${note?" — "+note:""}`, linkedBillId: bill.id, createdAt: Date.now()});
+        } else if(bill.recurring==="Monthly" && bill.duedate){
+          await dbPut("bills", {...bill, status:"Unpaid", duedate: addOneMonth(bill.duedate)});
         }
       }
     }
@@ -1027,6 +1046,14 @@ function parseSms(){
   closeSmsParse();
   const st = document.getElementById("smsText"); if(st) st.value="";
 }
+function addOneMonth(dateStr){
+  if(!dateStr) return dateStr;
+  const d = new Date(dateStr+"T00:00:00");
+  const day = d.getDate();
+  d.setMonth(d.getMonth()+1);
+  if(d.getDate() !== day) d.setDate(0); // clamp to last valid day of target month
+  return d.toISOString().slice(0,10);
+}
 function normalizeDate(raw){
   try{
     const parts = raw.split(/[-\/]/);
@@ -1049,6 +1076,8 @@ function daysUntil(dateStr){
   return Math.ceil(diff/(1000*60*60*24));
 }
 
+let _cache = {cards:[], banks:[], ids:[], bills:[], txns:[], cardsById:{}};
+
 async function renderAll(){
   const cards = await dbAll("cards");
   const banks = await dbAll("banks");
@@ -1056,25 +1085,53 @@ async function renderAll(){
   const bills = await dbAll("bills");
   const txns = await dbAll("transactions");
 
-  for(const c of cards) c._cardnoPlain = await decryptStr(c.cardno);
-  for(const b of banks) b._accnoPlain = await decryptStr(b.accno);
-  for(const i of ids) i._idnoPlain = await decryptStr(i.idno);
+  await Promise.all(cards.map(async c=>{ c._cardnoPlain = await decryptStr(c.cardno); }));
+  await Promise.all(banks.map(async b=>{ b._accnoPlain = await decryptStr(b.accno); }));
+  await Promise.all(ids.map(async i=>{ i._idnoPlain = await decryptStr(i.idno); }));
 
   const cardsById = {};
   for(const c of cards) cardsById[c.id] = c;
 
-  renderDashboard(cards, banks, bills, txns);
-  renderCards(cards);
-  renderBanks(banks);
-  renderIds(ids);
-  renderBills(bills, cardsById);
+  _cache = {cards, banks, ids, bills, txns, cardsById};
+  renderFromCache();
+}
+
+function renderFromCache(){
+  renderDashboard(_cache.cards, _cache.banks, _cache.bills, _cache.txns);
+  renderCards(_cache.cards);
+  renderBanks(_cache.banks);
+  renderIds(_cache.ids);
+  renderBills(_cache.bills, _cache.cardsById);
+}
+
+function totalRemainingLimit(cards){
+  const seenGroups = new Set();
+  let total = 0;
+  for(const c of cards){
+    if(c.sharedGroup){
+      if(seenGroups.has(c.sharedGroup)) continue;
+      seenGroups.add(c.sharedGroup);
+      total += groupAvailable(c, cards);
+    } else {
+      total += (c.limit||0)-(c.utilised||0);
+    }
+  }
+  return total;
 }
 
 function renderDashboard(cards, banks, bills, txns){
-  const totalDue = cards.reduce((s,c)=>s+(c.due||0),0);
   const totalBal = banks.reduce((s,b)=>s+(b.balance||0),0);
-  document.querySelector('[data-reveal="cardDue"]').textContent = revealState["cardDue"] ? fmtMoney(totalDue) : "••••••";
-  document.querySelector('[data-reveal="bankBal"]').textContent = revealState["bankBal"] ? fmtMoney(totalBal) : "••••••";
+  const remLimit = totalRemainingLimit(cards);
+  const totalUtil = cards.reduce((s,c)=>s+(c.utilised||0),0);
+  const ccBillsDue = bills.filter(b=>b.billtype==="Credit Card Bill" && b.status!=="Paid").reduce((s,b)=>s+(b.amount||0),0);
+  const otherBillsDue = bills.filter(b=>b.billtype!=="Credit Card Bill" && b.status!=="Paid").reduce((s,b)=>s+(b.amount||0),0);
+
+  document.querySelector('[data-reveal="remLimit"]').textContent = revealState["remLimit"] ? fmtMoney(remLimit) : "••••••";
+  document.querySelector('[data-reveal="totalUtil"]').textContent = revealState["totalUtil"] ? fmtMoney(totalUtil) : "••••••";
+  document.querySelector('[data-reveal="ccBillsDue"]').textContent = revealState["ccBillsDue"] ? fmtMoney(ccBillsDue) : "••••••";
+  document.querySelector('[data-reveal="otherBillsDue"]').textContent = revealState["otherBillsDue"] ? fmtMoney(otherBillsDue) : "••••••";
+  const bankBalEl = document.querySelector('[data-reveal="bankBal"]');
+  if(bankBalEl) bankBalEl.textContent = revealState["bankBal"] ? fmtMoney(totalBal) : "••••••";
 
   document.getElementById("dashCards").innerHTML = cards.length ? cards.map(c=>{
     const cm = getCardMeta(c.cardtype);
@@ -1176,7 +1233,7 @@ function renderBills(bills, cardsById){
     </div>`;
   }).join("") : `<div class="empty">No bills yet. Tap + to add one</div>`;
 }
-function toggleReveal(key){ revealState[key] = !revealState[key]; renderAll(); }
+function toggleReveal(key){ revealState[key] = !revealState[key]; renderFromCache(); }
 
 async function exportData(){
   const cards = await dbAll("cards");
