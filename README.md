@@ -6,7 +6,7 @@
 - **Banks**: one-time entity setup (Bank, Account Name, Account Number, Account Type, IFSC with auto branch-fetch, Branch Address/Phone, Starting Balance). Balance updates automatically via Transactions.
 - **Transactions**: "💰 Add Transaction" button on Cards/Banks screens. Select an existing card/account first, then log Purchase/Payment (cards) or Credit/Debit (banks). Each transaction can be **edited or deleted later** — open the Card/Account (tap it in the list) to see its full Transaction History with Edit/Delete buttons; editing or deleting automatically re-adjusts the balance/due correctly.
 - **Bills**: Electricity, WiFi/Internet, Rent, Milk, Maintenance, Gas, Mobile Recharge, DTH/OTT, Water, Other, and **Credit Card Bill** (linked to a specific card — this is now the ONLY place a card's statement/due is generated, so there's no more duplicate entry between Transactions and Bills).
-- **Govt IDs**: Aadhar, PAN, Driving License, Birth Certificate, Passport, Voter ID, Other.
+- **Documents**: Aadhar, PAN, Driving License, Birth Certificate, Passport, Voter ID, Other.
 - **Paste SMS**: available in the Transaction form and the Bill form — paste a bank/card SMS and amount/date (and min-due for Credit Card Bill) auto-fill. The paste box clears itself after use.
 - **Security**: 4-digit PIN lock + AES-256 encryption for card numbers, account numbers, and ID numbers.
 - **Offline**: all data stays on-device (IndexedDB). Only IFSC lookup needs internet.

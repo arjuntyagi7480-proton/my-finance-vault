@@ -37,6 +37,10 @@
   .entity-emoji{width:34px; height:34px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0;}
   .entity-title{font-weight:700; font-size:14px;}
   .entity-sub{font-size:11px; color:var(--muted);}
+  .brand-card{text-align:center; padding:18px 14px;}
+  .brand-logo{width:150px; height:150px; object-fit:contain; border-radius:16px; background:#fff; display:block; margin:0 auto 12px;}
+  .brand-text{margin:0; font-size:13px; color:var(--muted);}
+  .brand-text b{color:var(--text);}
   .fab{position:fixed; right:18px; bottom:80px; width:54px; height:54px; border-radius:50%; background:var(--accent); color:#04263a; font-size:28px; border:none; box-shadow:0 4px 12px rgba(0,0,0,.4); z-index:20;}
   .navbar{position:fixed; bottom:0; left:0; right:0; background:var(--card); display:flex; border-top:1px solid var(--border); z-index:10;}
   .navbtn{flex:1; text-align:center; padding:10px 0 8px; color:var(--muted); background:none; border:none; font-size:10px;}
@@ -108,7 +112,7 @@
 
 <header>
   <h1>🔐 My Finance Vault</h1>
-  <p>Cards • Banks • Bills • Govt IDs — encrypted &amp; offline</p>
+  <p>Cards • Banks • Bills • Documents — encrypted &amp; offline</p>
 </header>
 
 <div class="screen active" id="screen-dashboard">
@@ -132,7 +136,7 @@
   </div>
   <h2>📇 Cards Overview</h2>
   <div id="dashCards"></div>
-  <h2>📄 Pending Bills</h2>
+  <h2>📄 Pending Bills &amp; Reminders</h2>
   <div id="upcomingBills"></div>
 </div>
 
@@ -164,7 +168,7 @@
 </div>
 
 <div class="screen" id="screen-ids">
-  <h2>Govt IDs</h2>
+  <h2>Documents</h2>
   <div id="idsList"></div>
 </div>
 
@@ -178,6 +182,10 @@
     <p class="small-note">Restoring only works fully if you enter the exact same PIN you used when the backup was created.</p>
     <button class="btn danger" onclick="wipeAll()">🗑️ Delete All Data</button>
   </div>
+  <div class="card brand-card">
+    <img src="arjun-logo.jpg" alt="Arjun" class="brand-logo">
+    <p class="brand-text">This app is designed and maintained by <b>Arjun Tyagi</b>.</p>
+  </div>
 </div>
 
 <button class="fab" id="fabBtn">+</button>
@@ -187,7 +195,7 @@
   <button class="navbtn" data-screen="cards"><span class="ic">💳</span>Cards</button>
   <button class="navbtn" data-screen="banks"><span class="ic">🏦</span>Banks</button>
   <button class="navbtn" data-screen="bills"><span class="ic">📄</span>Bills</button>
-  <button class="navbtn" data-screen="ids"><span class="ic">🪪</span>IDs</button>
+  <button class="navbtn" data-screen="ids"><span class="ic">🪪</span>Docs</button>
   <button class="navbtn" data-screen="settings"><span class="ic">⚙️</span>More</button>
 </div>
 
@@ -197,7 +205,54 @@
 
 <script>
 const BANKS = ["SBI","HDFC Bank","ICICI Bank","Axis Bank","Kotak Mahindra","Punjab National Bank","Bank of Baroda","Canara Bank","Union Bank of India","IDFC First Bank","Yes Bank","IndusInd Bank","RBL Bank","Federal Bank","IDBI Bank","Bank of India","Indian Bank","Central Bank of India","AU Small Finance Bank","Roar Bank","Other"];
-const ID_TYPES = ["Aadhar","PAN","Driving License","Birth Certificate","Passport","Voter ID","Other"];
+const DOC_CFG = {
+  "Aadhar":{icon:"🆔", num:"Aadhar Number", f:[]},
+  "PAN":{icon:"📇", num:"PAN Number", f:[]},
+  "Driving License":{icon:"🚗", num:"DL Number", f:[["expiry","Valid Till (Expiry)","date"]]},
+  "Passport":{icon:"🛂", num:"Passport Number", f:[["expiry","Expiry Date","date"]]},
+  "Voter ID":{icon:"🗳️", num:"Voter ID Number", f:[]},
+  "Birth Certificate":{icon:"📜", num:"Certificate Number", f:[]},
+  "Ration Card":{icon:"🧾", num:"Ration Card Number", f:[]},
+  "Vehicle RC":{icon:"🚘", num:"RC Number", f:[["vehicleNo","Vehicle Number","text"],["expiry","RC Valid Till","date"]]},
+  "Insurance Policy":{icon:"🛡️", num:"Policy Number", f:[["provider","Insurance Company","text"],["insFor","Policy For (Vehicle / Health / Life)","text"],["premium","Premium Amount (₹)","number"],["premiumFreq","Premium Frequency","freq"],["duedate","Next Premium Due Date","date"],["expiry","Policy Expiry / Renewal Date","date"]]},
+  "PUCC Certificate":{icon:"🌿", num:"Certificate Number", f:[["vehicleNo","Vehicle Number","text"],["expiry","Valid Till (Expiry)","date"]]},
+  "LPG ID":{icon:"🔥", num:"LPG Consumer Number", f:[["provider","Gas Agency / Distributor","text"],["extra","Registered Mobile / Other Info","text"]]},
+  "Other":{icon:"📄", num:"Document Number", f:[["title","Document Name","text"],["duedate","Due Date","date"],["expiry","Expiry Date","date"]]}
+};
+const ID_TYPES = Object.keys(DOC_CFG);
+const FREQ_MONTHS = {"Yearly":12,"Half-yearly":6,"Quarterly":3,"Monthly":1,"One-time":0};
+function esc(t){ return (t==null?"":String(t)).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function docIcon(t){ return (DOC_CFG[t]&&DOC_CFG[t].icon) || "🪪"; }
+function docTitle(i){ return (i.idtype==="Other" && i.title) ? i.title : i.idtype; }
+function docSub(i){ return [i.provider,i.insFor,i.vehicleNo,i.extra].filter(Boolean).map(esc).join(" • "); }
+function dayDiff(dateStr){
+  if(!dateStr) return null;
+  const t = new Date(); t.setHours(0,0,0,0);
+  return Math.round((new Date(dateStr+"T00:00:00") - t)/86400000);
+}
+function dateTag(dateStr, warnDays, pastLabel){
+  const d = dayDiff(dateStr);
+  if(d===null) return "";
+  const txt = d<0 ? pastLabel : (d===0 ? "Today" : d+"d left");
+  return `<span class="tag ${d<=warnDays?"due-soon":"ok"}">${txt}</span>`;
+}
+function billCardLabel(b, card){
+  if(card) return `${card.bank} •••• ${card.cardnoLast4}`;
+  if(b.cardBank) return `${b.cardBank} •••• ${b.cardLast4||""}`;
+  return "";
+}
+function billIcon(b, card, size){
+  if(b.billtype==="Credit Card Bill"){
+    const bank = card ? card.bank : b.cardBank;
+    if(bank){ const bm = getBankMeta(bank); return iconHTML("bank-logo", bank, "💳", bm.color, size); }
+    return iconHTML("bill-logo", b.nickname||b.billtype, "💳", "#334155", size);
+  }
+  return iconHTML("bill-logo", b.nickname||b.billtype, BILL_ICON[b.billtype]||"📄", "#334155", size);
+}
+function billTitleLine(b, card){
+  const lab = billCardLabel(b, card);
+  return [b.nickname, lab].filter(Boolean).map(esc).join(" • ");
+}
 const BILL_TYPES = ["Credit Card Bill","Electricity","WiFi / Internet","Rent","Milk","Maintenance","Gas","Mobile Recharge","DTH / OTT","Water","Other"];
 const ACCOUNT_TYPES = ["Savings","Current"];
 const CARD_NETWORKS = ["VISA","Mastercard","RuPay","Amex","Discover","Diners Club","Other"];
@@ -564,15 +619,16 @@ async function openForm(type, record){
     ${record?`<button class="btn danger" onclick="deleteRecord('banks',${record.id})">Delete</button>`:""}
     ${record?await renderTxnHistoryHTML("bank", record.id):""}`;
   } else if(type==="id"){
-    html += `<h3>${record?"Edit ID":"Add New Govt ID"}</h3>
-    <label>ID Type</label>
-    <select id="f_idtype">
+    _docEditRec = record;
+    html += `<h3>${record?"Edit Document":"Add New Document"}</h3>
+    <label>Document Type</label>
+    <select id="f_idtype" onchange="renderDocFields()">
       <option value="SELECT" ${!record?"selected":""} disabled>-- Select Type --</option>
       ${ID_TYPES.map(t=>`<option ${record&&record.idtype===t?"selected":""}>${t}</option>`).join("")}
     </select>
-    <label>ID Number</label>
-    <input id="f_idno" value="${record?record._idnoPlain||"":""}">
+    <div id="docFields"></div>
     <button class="btn primary" onclick="saveId()">Save</button>
+    <div id="docPaidBtn"></div>
     ${record?`<button class="btn danger" onclick="deleteRecord('ids',${record.id})">Delete</button>`:""}`;
   } else if(type==="bill"){
     const cardsList = await dbAll("cards");
@@ -616,9 +672,41 @@ async function openForm(type, record){
     ${record?`<button class="btn danger" onclick="deleteRecord('bills',${record.id})">Delete</button>`:""}`;
   }
   openModalHTML(html);
+  if(type==="id") renderDocFields();
   if(type==="card"){
     attachExpiryMask(document.getElementById("f_expiry"));
   }
+}
+let _docEditRec = null;
+function renderDocFields(){
+  const t = document.getElementById("f_idtype").value;
+  const cfg = DOC_CFG[t];
+  const box = document.getElementById("docFields");
+  if(!cfg){ box.innerHTML = ""; return; }
+  const rec = (_docEditRec && _docEditRec.idtype===t) ? _docEditRec : null;
+  const v = k => esc(rec && rec[k]!=null ? rec[k] : "");
+  let h = `<label>${cfg.num}</label><input id="f_idno" value="${esc(rec?rec._idnoPlain||"":"")}">`;
+  for(const [key,label,kind] of cfg.f){
+    if(kind==="freq"){
+      const cur = (rec && rec.premiumFreq) || "Yearly";
+      h += `<label>${label}</label><select id="f_doc_${key}">${Object.keys(FREQ_MONTHS).map(o=>`<option ${cur===o?"selected":""}>${o}</option>`).join("")}</select>`;
+    } else {
+      h += `<label>${label}</label><input id="f_doc_${key}" type="${kind}" value="${v(key)}">`;
+    }
+  }
+  box.innerHTML = h;
+  const pb = document.getElementById("docPaidBtn");
+  const hasFreq = cfg.f.some(x=>x[0]==="premiumFreq");
+  pb.innerHTML = (rec && hasFreq) ? `<button class="btn green" onclick="markDocPaid(${rec.id})">✅ Premium Paid — move to next due date</button>` : "";
+}
+async function markDocPaid(id){
+  const rec = await dbGet("ids", id);
+  if(!rec || !rec.duedate){ alert("Set a Next Premium Due Date first."); return; }
+  const m = FREQ_MONTHS[rec.premiumFreq||"Yearly"];
+  if(!m){ alert("Frequency is One-time — nothing to roll forward. Clear the due date instead if it's done."); return; }
+  rec.duedate = addMonths(rec.duedate, m);
+  await dbPut("ids", rec);
+  closeModal(); await renderAll();
 }
 function onBillTypeChange(){
   const val = document.getElementById("f_billtype").value;
@@ -693,13 +781,19 @@ async function saveBank(){
 }
 async function saveId(){
   const idtypeVal = document.getElementById("f_idtype").value;
-  if(idtypeVal==="SELECT"){ alert("Please select ID Type"); return; }
+  if(idtypeVal===""||idtypeVal==="SELECT"){ alert("Please select Document Type"); return; }
+  const cfg = DOC_CFG[idtypeVal];
   const idno = document.getElementById("f_idno").value.trim();
   const obj = {
     idtype: idtypeVal,
     idno: await encryptStr(idno),
     idnoLast4: idno.slice(-4),
   };
+  for(const [key,,kind] of cfg.f){
+    const el = document.getElementById("f_doc_"+key);
+    if(!el) continue;
+    obj[key] = kind==="number" ? (+el.value || 0) : el.value.trim();
+  }
   if(currentEditId) obj.id = currentEditId;
   await dbPut("ids", obj);
   closeModal(); await renderAll();
@@ -708,11 +802,13 @@ async function saveBill(){
   const billtypeVal = document.getElementById("f_billtype").value;
   if(billtypeVal==="SELECT"){ alert("Please select Biller Type"); return; }
   const isCC = billtypeVal === "Credit Card Bill";
-  let linkedCardId = null, mindue = 0;
+  let linkedCardId = null, mindue = 0, cardBank = "", cardLast4 = "";
   if(isCC){
     const cardSel = document.getElementById("f_linkedcard").value;
     if(cardSel==="SELECT"){ alert("Please select the linked Card"); return; }
     linkedCardId = +cardSel;
+    const lc = await dbGet("cards", linkedCardId);
+    if(lc){ cardBank = lc.bank; cardLast4 = lc.cardnoLast4; }
     mindue = +document.getElementById("f_billmindue").value || 0;
   }
   const amount = +document.getElementById("f_billamount").value || 0;
@@ -725,6 +821,8 @@ async function saveBill(){
     status: document.getElementById("f_billstatus").value,
     recurring: document.getElementById("f_billrecurring").value,
     linkedCardId: linkedCardId,
+    cardBank: cardBank,
+    cardLast4: cardLast4,
     mindue: mindue,
   };
   if(currentEditId) obj.id = currentEditId;
@@ -1046,13 +1144,24 @@ function parseSms(){
   closeSmsParse();
   const st = document.getElementById("smsText"); if(st) st.value="";
 }
+function localISO(d){
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+}
+function addMonths(dateStr, n){
+  if(!dateStr) return dateStr;
+  const d = new Date(dateStr+"T00:00:00");
+  const day = d.getDate();
+  d.setMonth(d.getMonth()+n);
+  if(d.getDate() !== day) d.setDate(0);
+  return localISO(d);
+}
 function addOneMonth(dateStr){
   if(!dateStr) return dateStr;
   const d = new Date(dateStr+"T00:00:00");
   const day = d.getDate();
   d.setMonth(d.getMonth()+1);
   if(d.getDate() !== day) d.setDate(0); // clamp to last valid day of target month
-  return d.toISOString().slice(0,10);
+  return localISO(d);
 }
 function normalizeDate(raw){
   try{
@@ -1091,6 +1200,17 @@ async function renderAll(){
 
   const cardsById = {};
   for(const c of cards) cardsById[c.id] = c;
+
+  // keep a snapshot of bank/last4 on Credit Card Bills so the label survives even if the card link breaks
+  for(const b of bills){
+    if(b.billtype==="Credit Card Bill" && b.linkedCardId && cardsById[b.linkedCardId]){
+      const c = cardsById[b.linkedCardId];
+      if(b.cardBank!==c.bank || b.cardLast4!==c.cardnoLast4){
+        b.cardBank = c.bank; b.cardLast4 = c.cardnoLast4;
+        await dbPut("bills", b);
+      }
+    }
+  }
 
   _cache = {cards, banks, ids, bills, txns, cardsById};
   renderFromCache();
@@ -1142,18 +1262,35 @@ function renderDashboard(cards, banks, bills, txns){
     <div class="row"><span class="k">Total Due</span><span class="v">${fmtMoney(c.due)}</span></div></div>`;
   }).join("") : `<div class="empty">No cards added yet</div>`;
 
-  const pending = [...bills].filter(b=>b.status!=="Paid").sort((a,b)=>{
-    const da = a.duedate ? new Date(a.duedate).getTime() : Infinity;
-    const db = b.duedate ? new Date(b.duedate).getTime() : Infinity;
-    return da-db;
-  });
-  document.getElementById("upcomingBills").innerHTML = pending.length ? pending.map(b=>{
+  const items = [];
+  for(const b of bills){
+    if(b.status==="Paid") continue;
+    const card = (b.billtype==="Credit Card Bill" && b.linkedCardId) ? _cache.cardsById[b.linkedCardId] : null;
     const d = daysUntil(b.duedate);
     const soon = d!==null && d<=7;
-    return `<div class="card"><div class="row"><span class="k">${iconHTML("bill-logo", b.nickname||b.billtype, BILL_ICON[b.billtype]||"📄", "#334155", 22)} ${b.billtype}${b.nickname?" • "+b.nickname:""}</span>
-    ${d!==null?`<span class="tag ${soon?"due-soon":"ok"}">${d>=0?d+"d left":"Overdue"}</span>`:""}</div>
-    <div class="row"><span class="k">Due: ${b.duedate||"-"}</span><span class="v">${fmtMoney(b.amount)}</span></div></div>`;
-  }).join("") : `<div class="empty">No pending bills 🎉</div>`;
+    const sub = billTitleLine(b, card);
+    items.push({t: b.duedate ? new Date(b.duedate).getTime() : Infinity, html:
+      `<div class="card"><div class="row"><span class="k">${billIcon(b, card, 22)} ${b.billtype}${sub?" • "+sub:""}</span>
+      ${d!==null?`<span class="tag ${soon?"due-soon":"ok"}">${d>=0?d+"d left":"Overdue"}</span>`:""}</div>
+      <div class="row"><span class="k">Due: ${b.duedate||"-"}</span><span class="v">${fmtMoney(b.amount)}</span></div></div>`});
+  }
+  for(const i of (_cache.ids||[])){
+    const sub = docSub(i);
+    const head = `${iconHTML("id-logo", i.idtype, docIcon(i.idtype), "#334155", 22)} ${esc(docTitle(i))}${sub?" • "+sub:""}`;
+    if(i.duedate){
+      items.push({t: new Date(i.duedate).getTime(), html:
+        `<div class="card" onclick="gotoScreen('ids')"><div class="row"><span class="k">${head}</span>${dateTag(i.duedate,7,"Overdue")}</div>
+        <div class="row"><span class="k">${i.idtype==="Insurance Policy"?"Premium Due":"Due"}: ${i.duedate}</span><span class="v">${i.premium?fmtMoney(i.premium):""}</span></div></div>`});
+    }
+    const de = dayDiff(i.expiry);
+    if(i.expiry && de!==null && de<=30){
+      items.push({t: new Date(i.expiry).getTime(), html:
+        `<div class="card" onclick="gotoScreen('ids')"><div class="row"><span class="k">${head}</span>${dateTag(i.expiry,30,"Expired")}</div>
+        <div class="row"><span class="k">Expires: ${i.expiry}</span><span class="v"></span></div></div>`});
+    }
+  }
+  items.sort((a,b)=>a.t-b.t);
+  document.getElementById("upcomingBills").innerHTML = items.length ? items.map(x=>x.html).join("") : `<div class="empty">No pending bills 🎉</div>`;
 }
 
 function groupAvailable(card, allCards){
@@ -1206,25 +1343,35 @@ function renderBanks(banks){
   }).join("") : `<div class="empty">No bank accounts yet. Tap "+ New Account" to add one</div>`;
 }
 function renderIds(ids){
-  document.getElementById("idsList").innerHTML = ids.length ? ids.map(i=>`
-    <div class="card" onclick="openForm('id', ${JSON.stringify(i).replace(/"/g,"&quot;")})">
+  document.getElementById("idsList").innerHTML = ids.length ? ids.map(i=>{
+    const sub = docSub(i);
+    const hasNum = i.idnoLast4 || i._idnoPlain;
+    let rows = "";
+    if(hasNum) rows += `<div class="row"><span class="k">${(DOC_CFG[i.idtype]&&DOC_CFG[i.idtype].num)||"ID No."}</span>
+        <span class="v masked" onclick="event.stopPropagation(); toggleReveal('id${i.id}')">${revealState["id"+i.id]? esc(i._idnoPlain) : "•••• "+esc(i.idnoLast4)}</span></div>`;
+    if(i.premium) rows += `<div class="row"><span class="k">Premium${i.premiumFreq?" ("+i.premiumFreq+")":""}</span><span class="v">${fmtMoney(i.premium)}</span></div>`;
+    if(i.duedate) rows += `<div class="row"><span class="k">${i.idtype==="Insurance Policy"?"Next Premium Due":"Due Date"}</span><span class="v">${i.duedate} ${dateTag(i.duedate,7,"Overdue")}</span></div>`;
+    if(i.expiry) rows += `<div class="row"><span class="k">Expiry</span><span class="v">${i.expiry} ${dateTag(i.expiry,30,"Expired")}</span></div>`;
+    return `<div class="card" onclick="openForm('id', ${JSON.stringify(i).replace(/"/g,"&quot;")})">
       <div class="entity-head">
-        ${iconHTML("id-logo", i.idtype, ID_ICON[i.idtype]||"🪪", "#334155", 34)}
-        <div class="entity-title">${i.idtype}</div>
-      </div>
-      <div class="row"><span class="k">ID No.</span>
-        <span class="v masked" onclick="event.stopPropagation(); toggleReveal('id${i.id}')">${revealState["id"+i.id]? i._idnoPlain : "•••• "+i.idnoLast4}</span></div>
-    </div>`).join("") : `<div class="empty">No IDs yet. Tap + to add one</div>`;
+        ${iconHTML("id-logo", i.idtype, docIcon(i.idtype), "#334155", 34)}
+        <div>
+          <div class="entity-title">${esc(docTitle(i))}</div>
+          ${sub?`<div class="entity-sub">${sub}</div>`:""}
+        </div>
+      </div>${rows}
+    </div>`;
+  }).join("") : `<div class="empty">No documents yet. Tap + to add one</div>`;
 }
 function renderBills(bills, cardsById){
   document.getElementById("billsList").innerHTML = bills.length ? bills.map(b=>{
     const linked = (b.billtype==="Credit Card Bill" && b.linkedCardId && cardsById[b.linkedCardId]) ? cardsById[b.linkedCardId] : null;
     return `<div class="card" onclick="openForm('bill', ${JSON.stringify(b).replace(/"/g,"&quot;")})">
       <div class="entity-head">
-        ${iconHTML("bill-logo", b.nickname||b.billtype, BILL_ICON[b.billtype]||"📄", "#334155", 34)}
+        ${billIcon(b, linked, 34)}
         <div>
           <div class="entity-title">${b.billtype}</div>
-          <div class="entity-sub">${b.nickname||""}${linked?` • ${linked.bank} •••• ${linked.cardnoLast4}`:""}</div>
+          <div class="entity-sub">${billTitleLine(b, linked) || (b.billtype==="Credit Card Bill" ? "⚠️ Card not linked — tap to select" : "")}</div>
         </div>
       </div>
       <div class="row"><span class="k">Amount</span><span class="v">${fmtMoney(b.amount)}</span></div>
