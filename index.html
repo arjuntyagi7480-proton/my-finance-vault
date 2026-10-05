@@ -37,6 +37,11 @@
   .entity-emoji{width:34px; height:34px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0;}
   .entity-title{font-weight:700; font-size:14px;}
   .entity-sub{font-size:11px; color:var(--muted);}
+  .sec-head{font-size:13px; font-weight:700; color:var(--muted); margin:6px 2px 10px;}
+  .chip{display:inline-block; padding:7px 12px; border-radius:20px; background:var(--card2); border:1px solid var(--border); color:var(--text); font-size:12px; margin:0 6px 8px 0;}
+  .bar{height:6px; border-radius:4px; background:var(--card2); overflow:hidden; margin:4px 0 8px;}
+  .bar > i{display:block; height:100%; background:var(--accent);}
+  details.exp{margin:0 0 6px;} details.exp summary{cursor:pointer; list-style:none;}
   .brand-card{text-align:center; padding:18px 14px;}
   .brand-logo{width:150px; height:150px; object-fit:contain; border-radius:16px; background:#fff; display:block; margin:0 auto 12px;}
   .brand-text{margin:0; font-size:13px; color:var(--muted);}
@@ -175,6 +180,7 @@
 <div class="screen" id="screen-settings">
   <h2>Settings</h2>
   <div class="card">
+    <button class="btn primary" onclick="openExpenseReport()">📊 Expense Report</button>
     <button class="btn secondary" onclick="changePin()">🔑 Change PIN</button>
     <button class="btn secondary" onclick="exportData()">⬇️ Export Backup (JSON)</button>
     <button class="btn secondary" onclick="triggerImport()">⬆️ Restore Backup (JSON)</button>
@@ -677,6 +683,84 @@ async function openForm(type, record){
     attachExpiryMask(document.getElementById("f_expiry"));
   }
 }
+/* ============ EXPENSE REPORT ============ */
+function expRange(kind){
+  const n = new Date(), y = n.getFullYear(), m = n.getMonth();
+  const first = (yy,mm)=>localISO(new Date(yy,mm,1));
+  const last = (yy,mm)=>localISO(new Date(yy,mm+1,0));
+  if(kind==="this") return [first(y,m), last(y,m)];
+  if(kind==="prev") return [first(y,m-1), last(y,m-1)];
+  if(kind==="3m") return [first(y,m-2), last(y,m)];
+  if(kind==="fy"){ const sy = m>=3 ? y : y-1; return [first(sy,3), last(sy+1,2)]; }
+  return [first(y,m), last(y,m)];
+}
+function setExpRange(kind){
+  const [a,b] = expRange(kind);
+  document.getElementById("exp_from").value = a;
+  document.getElementById("exp_to").value = b;
+  runExpenseReport();
+}
+function openExpenseReport(){
+  const [a,b] = expRange("this");
+  openModalHTML(`<button class="close-x" onclick="closeModal()">✕</button>
+    <h3>📊 Expense Report</h3>
+    <div>
+      <span class="chip" onclick="setExpRange('this')">This Month</span>
+      <span class="chip" onclick="setExpRange('prev')">Last Month</span>
+      <span class="chip" onclick="setExpRange('3m')">Last 3 Months</span>
+      <span class="chip" onclick="setExpRange('fy')">This FY (Apr–Mar)</span>
+    </div>
+    <label>From</label><input id="exp_from" type="date" value="${a}" onchange="runExpenseReport()">
+    <label>To</label><input id="exp_to" type="date" value="${b}" onchange="runExpenseReport()">
+    <label style="display:flex; align-items:center; gap:8px; margin-top:12px;"><input id="exp_bank" type="checkbox" style="width:auto" onchange="runExpenseReport()"> Include other bank debits (not linked to a bill)</label>
+    <div id="expResult" style="margin-top:12px;"></div>`);
+  runExpenseReport();
+}
+async function runExpenseReport(){
+  const from = document.getElementById("exp_from").value;
+  const to = document.getElementById("exp_to").value;
+  const box = document.getElementById("expResult");
+  if(!from || !to){ box.innerHTML = `<p class="small-note">Select both dates.</p>`; return; }
+  if(from > to){ box.innerHTML = `<p class="small-note">"From" date must be before "To" date.</p>`; return; }
+  const bills = await dbAll("bills");
+  const items = [];
+  for(const b of bills){
+    if(b.status!=="Paid") continue;
+    const d = b.paidDate || b.duedate;
+    if(!d || d<from || d>to) continue;
+    const amt = b.paidAmount!=null ? b.paidAmount : (b.amount||0);
+    items.push({cat:b.billtype, label:[b.nickname, (b.cardBank?b.cardBank+" ••••"+(b.cardLast4||""):"")].filter(Boolean).join(" • ") || b.billtype, date:d, amt});
+  }
+  if(document.getElementById("exp_bank").checked){
+    const txns = await dbAll("transactions");
+    for(const t of txns){
+      if(t.entityType!=="bank" || t.txnType!=="debit" || t.linkedBillId) continue;
+      if(!t.date || t.date<from || t.date>to) continue;
+      if(/reconcil/i.test(t.note||"")) continue;
+      items.push({cat:"Other Bank Debits", label:t.note||"Bank debit", date:t.date, amt:t.amount||0});
+    }
+  }
+  if(!items.length){ box.innerHTML = `<div class="empty">No paid bills in this period.</div><p class="small-note">Only bills marked Paid are counted (date = date paid).</p>`; return; }
+  const groups = {};
+  for(const it of items){ (groups[it.cat] = groups[it.cat] || {total:0, list:[]}); groups[it.cat].total += it.amt; groups[it.cat].list.push(it); }
+  const total = items.reduce((a,x)=>a+x.amt,0);
+  const cats = Object.keys(groups).sort((a,b)=>groups[b].total-groups[a].total);
+  let h = `<div class="summary-box" style="margin-bottom:12px;"><div class="label">Total Expenses (${from} → ${to})</div><div class="value">${fmtMoney(total)}</div></div>`;
+  for(const c of cats){
+    const g = groups[c];
+    const icon = BILL_ICON[c] || (c==="Other Bank Debits" ? "🏦" : "📄");
+    const pct = total ? Math.round(g.total*100/total) : 0;
+    g.list.sort((a,b)=>b.date.localeCompare(a.date));
+    h += `<details class="exp card" style="padding:10px 12px; margin-bottom:8px;"><summary>
+      <div class="row"><span class="k" style="color:var(--text);">${icon} <b>${esc(c)}</b> <span style="color:var(--muted)">(${g.list.length})</span></span><span class="v">${fmtMoney(g.total)}</span></div>
+      <div class="bar"><i style="width:${pct}%"></i></div></summary>
+      ${g.list.map(x=>`<div class="row"><span class="k">${x.date} • ${esc(x.label)}</span><span class="v">${fmtMoney(x.amt)}</span></div>`).join("")}
+    </details>`;
+  }
+  h += `<p class="small-note">Counts bills marked Paid, by the date they were paid. Credit Card Bill payments are included as their own category.</p>`;
+  box.innerHTML = h;
+}
+
 let _docEditRec = null;
 function renderDocFields(){
   const t = document.getElementById("f_idtype").value;
@@ -825,6 +909,12 @@ async function saveBill(){
     cardLast4: cardLast4,
     mindue: mindue,
   };
+  const prevBill = currentEditId ? await dbGet("bills", currentEditId) : null;
+  const wasPaid = !!(prevBill && prevBill.status==="Paid");
+  if(obj.status==="Paid"){
+    obj.paidDate = (prevBill && prevBill.paidDate) || localISO(new Date());
+    obj.paidAmount = (prevBill && prevBill.paidAmount) || amount;
+  }
   if(currentEditId) obj.id = currentEditId;
   const savedId = await dbPut("bills", obj);
   if(currentEditId) obj.id = currentEditId; else obj.id = savedId;
@@ -837,8 +927,9 @@ async function saveBill(){
       await dbPut("cards", card);
     }
   }
-  if(!isCC && obj.status==="Paid" && obj.recurring==="Monthly" && obj.duedate){
+  if(!isCC && obj.status==="Paid" && !wasPaid && obj.recurring==="Monthly" && obj.duedate){
     const rolled = {...obj, status:"Unpaid", duedate: addOneMonth(obj.duedate)};
+    delete rolled.id; delete rolled.paidDate; delete rolled.paidAmount;
     await dbPut("bills", rolled);
   }
   closeModal(); await renderAll();
@@ -917,22 +1008,29 @@ async function saveTxn(entityType){
   const note = document.getElementById("t_note").value.trim();
   if(amount<=0){ alert("Please enter a valid amount"); return; }
 
+  const _bl = (entityType==="bank" && type==="debit") ? document.getElementById("t_billlink") : null;
+  const _blId = (_bl && _bl.value && _bl.value!=="NONE") ? +_bl.value : null;
   await applyTxnEffect(entityType, entityId, type, amount);
-  await dbPut("transactions", {entityType, entityId, txnType:type, amount, date, note, createdAt: Date.now()});
+  const _txn = {entityType, entityId, txnType:type, amount, date, note, createdAt: Date.now()};
+  if(_blId) _txn.linkedBillId = _blId;
+  await dbPut("transactions", _txn);
 
   if(entityType==="bank" && type==="debit"){
-    const billLinkEl = document.getElementById("t_billlink");
-    const billId = billLinkEl ? billLinkEl.value : "NONE";
+    const billId = _blId ? String(_blId) : "NONE";
     if(billId && billId!=="NONE"){
       const bill = await dbGet("bills", +billId);
       if(bill){
         bill.status = "Paid";
+        bill.paidDate = date || localISO(new Date());
+        bill.paidAmount = amount;
         await dbPut("bills", bill);
         if(bill.billtype==="Credit Card Bill" && bill.linkedCardId){
           await applyTxnEffect("card", bill.linkedCardId, "payment", amount);
           await dbPut("transactions", {entityType:"card", entityId:bill.linkedCardId, txnType:"payment", amount, date, note:`Paid via bank transfer${note?" — "+note:""}`, linkedBillId: bill.id, createdAt: Date.now()});
         } else if(bill.recurring==="Monthly" && bill.duedate){
-          await dbPut("bills", {...bill, status:"Unpaid", duedate: addOneMonth(bill.duedate)});
+          const nxt = {...bill, status:"Unpaid", duedate: addOneMonth(bill.duedate)};
+          delete nxt.id; delete nxt.paidDate; delete nxt.paidAmount;
+          await dbPut("bills", nxt);
         }
       }
     }
@@ -1082,7 +1180,7 @@ async function saveTxnEdit(txnId){
   if(newAmount<=0){ alert("Please enter a valid amount"); return; }
   await reverseTxnEffect(txn);
   await applyTxnEffect(txn.entityType, txn.entityId, newType, newAmount);
-  await dbPut("transactions", {id:txn.id, entityType:txn.entityType, entityId:txn.entityId, txnType:newType, amount:newAmount, date:newDate, note:newNote, createdAt:txn.createdAt});
+  await dbPut("transactions", {id:txn.id, entityType:txn.entityType, entityId:txn.entityId, txnType:newType, amount:newAmount, date:newDate, note:newNote, createdAt:txn.createdAt, linkedBillId:txn.linkedBillId});
   await renderAll();
   const updated = await dbGet(txn.entityType==="card"?"cards":"banks", txn.entityId);
   if(updated) await openForm(txn.entityType, updated); else closeModal();
@@ -1265,8 +1363,10 @@ function renderDashboard(cards, banks, bills, txns){
   const items = [];
   for(const b of bills){
     if(b.status==="Paid") continue;
+    const dd = dayDiff(b.duedate);
+    if(b.billtype!=="Credit Card Bill" && b.recurring==="Monthly" && dd!==null && dd>7) continue; // monthly bills appear 7 days before due date
     const card = (b.billtype==="Credit Card Bill" && b.linkedCardId) ? _cache.cardsById[b.linkedCardId] : null;
-    const d = daysUntil(b.duedate);
+    const d = dd;
     const soon = d!==null && d<=7;
     const sub = billTitleLine(b, card);
     items.push({t: b.duedate ? new Date(b.duedate).getTime() : Infinity, html:
@@ -1290,7 +1390,7 @@ function renderDashboard(cards, banks, bills, txns){
     }
   }
   items.sort((a,b)=>a.t-b.t);
-  document.getElementById("upcomingBills").innerHTML = items.length ? items.map(x=>x.html).join("") : `<div class="empty">No pending bills 🎉</div>`;
+  document.getElementById("upcomingBills").innerHTML = items.length ? items.map(x=>x.html).join("") : `<div class="empty">Nothing due right now 🎉</div>`;
 }
 
 function groupAvailable(card, allCards){
@@ -1363,10 +1463,19 @@ function renderIds(ids){
     </div>`;
   }).join("") : `<div class="empty">No documents yet. Tap + to add one</div>`;
 }
-function renderBills(bills, cardsById){
-  document.getElementById("billsList").innerHTML = bills.length ? bills.map(b=>{
+function renderBills(allBills, cardsById){
+  const far = 9e15;
+  const pendingB = allBills.filter(b=>b.status!=="Paid").sort((a,b)=>(a.duedate?new Date(a.duedate).getTime():far)-(b.duedate?new Date(b.duedate).getTime():far));
+  const paidB = allBills.filter(b=>b.status==="Paid").sort((a,b)=>(b.duedate?new Date(b.duedate).getTime():0)-(a.duedate?new Date(a.duedate).getTime():0));
+  const bills = [...pendingB, ...paidB];
+  const heading = (txt)=>`<div class="sec-head">${txt}</div>`;
+  let shownPaidHead = false;
+  document.getElementById("billsList").innerHTML = bills.length ? bills.map((b,idx)=>{
+    let pre = "";
+    if(idx===0 && b.status!=="Paid") pre = heading("⏳ Pending ("+pendingB.length+")");
+    if(b.status==="Paid" && !shownPaidHead){ shownPaidHead = true; pre = heading("✅ Paid ("+paidB.length+")"); }
     const linked = (b.billtype==="Credit Card Bill" && b.linkedCardId && cardsById[b.linkedCardId]) ? cardsById[b.linkedCardId] : null;
-    return `<div class="card" onclick="openForm('bill', ${JSON.stringify(b).replace(/"/g,"&quot;")})">
+    return pre + `<div class="card" onclick="openForm('bill', ${JSON.stringify(b).replace(/"/g,"&quot;")})">
       <div class="entity-head">
         ${billIcon(b, linked, 34)}
         <div>
