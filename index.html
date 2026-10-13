@@ -37,6 +37,43 @@
   .entity-emoji{width:34px; height:34px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0;}
   .entity-title{font-weight:700; font-size:14px;}
   .entity-sub{font-size:11px; color:var(--muted);}
+  .cc-tile{position:relative; border-radius:18px; overflow:hidden; margin-bottom:16px; color:#fff; box-shadow:0 6px 18px rgba(0,0,0,.45); cursor:pointer; border:1px solid rgba(255,255,255,.08);}
+  .cc-top{position:relative; padding:16px 16px 14px; min-height:132px; overflow:hidden;}
+  .cc-top::before,.cc-top::after{content:""; position:absolute; border-radius:50%; background:rgba(255,255,255,.07); pointer-events:none;}
+  .cc-top::before{width:190px; height:190px; right:-50px; top:-70px;}
+  .cc-top::after{width:240px; height:240px; left:-90px; bottom:-150px; background:rgba(255,255,255,.05);}
+  .cc-pat-rings{position:absolute; right:-60px; top:-10px; width:230px; height:230px; border-radius:50%; opacity:.5; pointer-events:none;
+    background:repeating-radial-gradient(circle at center, rgba(255,255,255,.14) 0 2px, transparent 2px 9px); -webkit-mask-image:radial-gradient(circle, #000 35%, transparent 72%); mask-image:radial-gradient(circle, #000 35%, transparent 72%);}
+  .cc-pat-geo{position:absolute; right:-40px; top:-30px; width:250px; height:250px; opacity:.55; pointer-events:none;
+    background:repeating-conic-gradient(from 0deg, rgba(255,255,255,.16) 0 2deg, transparent 2deg 12deg); -webkit-mask-image:radial-gradient(circle, #000 20%, transparent 70%); mask-image:radial-gradient(circle, #000 20%, transparent 70%);}
+  .cc-head{position:relative; z-index:1; display:flex; align-items:center; justify-content:space-between; min-height:40px;}
+  .cc-logo{height:34px; max-width:150px; object-fit:contain; display:block;}
+  .cc-wordmark{font-weight:800; font-size:20px; letter-spacing:.3px;}
+  .cc-tap{width:38px; height:38px; border-radius:50%; background:#fff; color:#111; display:flex; align-items:center; justify-content:center; font-size:18px; box-shadow:0 2px 6px rgba(0,0,0,.35);}
+  .cc-mid{position:relative; z-index:1; display:flex; align-items:center; gap:14px; margin-top:14px;}
+  .cc-chip{width:42px; height:32px; border-radius:6px; background:linear-gradient(135deg,#e9d38f,#c9a94f); position:relative; flex:none; box-shadow:inset 0 0 0 1px rgba(0,0,0,.15);}
+  .cc-chip::before{content:""; position:absolute; left:0; right:0; top:50%; height:1px; background:rgba(0,0,0,.25);}
+  .cc-chip::after{content:""; position:absolute; top:0; bottom:0; left:50%; width:1px; background:rgba(0,0,0,.25);}
+  .cc-roar{align-items:center; gap:9px;}
+  .cc-roar[style*="block"]{display:flex !important;}
+  .cc-lion{font-size:30px; line-height:1;}
+  .cc-wtxt{display:flex; flex-direction:column; font-weight:700; font-size:22px; letter-spacing:.2px; line-height:1;}
+  .cc-wtxt small{font-size:9px; font-weight:600; letter-spacing:.6px; opacity:.8; margin-top:3px;}
+  .cc-no{font-weight:700; letter-spacing:2px; font-size:15px;}
+  .cc-name{font-size:11px; font-weight:700; letter-spacing:2px; text-transform:uppercase; opacity:.9; margin-top:4px;}
+  .cc-bottom{position:relative; padding:12px 16px 12px; border-top:1px solid rgba(255,255,255,.1);}
+  .cc-due-row{display:flex; align-items:center; justify-content:space-between; gap:10px;}
+  .cc-due-label{font-size:12px; opacity:.7;}
+  .cc-due-amt{font-size:24px; font-weight:700; margin-top:2px;}
+  .cc-pill{min-width:132px; text-align:center; border-radius:10px; overflow:hidden; box-shadow:0 2px 6px rgba(0,0,0,.35);}
+  .cc-pill .p1{background:#fff; font-weight:700; font-size:15px; padding:8px 10px;}
+  .cc-pill .p2{font-size:10px; font-weight:700; letter-spacing:.5px; padding:5px 8px; text-transform:uppercase; color:#fff;}
+  .cc-pill.ok .p1{color:#15803d;} .cc-pill.ok .p2{background:#15803d;}
+  .cc-pill.warn .p1{color:#b45309;} .cc-pill.warn .p2{background:#b45309;}
+  .cc-pill.bad .p1{color:#b91c1c;} .cc-pill.bad .p2{background:#b91c1c;}
+  .cc-foot{display:flex; justify-content:space-between; gap:6px; margin-top:10px; padding-top:8px; border-top:1px dashed rgba(255,255,255,.15); font-size:11px; opacity:.85;}
+  .cc-foot b{display:block; font-size:12px; font-weight:700;}
+  .cc-share{font-size:10px; opacity:.75; margin-top:6px;}
   .sec-head{font-size:13px; font-weight:700; color:var(--muted); margin:6px 2px 10px;}
   .chip{display:inline-block; padding:7px 12px; border-radius:20px; background:var(--card2); border:1px solid var(--border); color:var(--text); font-size:12px; margin:0 6px 8px 0;}
   .bar{height:6px; border-radius:4px; background:var(--card2); overflow:hidden; margin:4px 0 8px;}
@@ -576,6 +613,8 @@ async function openForm(type, record){
     </select>
     <label>Card Number</label>
     <input id="f_cardno" placeholder="XXXX XXXX XXXX XXXX" value="${record?record._cardnoPlain||"":""}" oninput="onCardNoInput()">
+    <label>Name on Card (optional)</label>
+    <input id="f_holder" value="${record?esc(record.holder||""):""}" placeholder="e.g. ARJUN TYAGI">
     <label>Card Type (auto-detected, editable)</label>
     <select id="f_cardtype">${CARD_NETWORKS.map(t=>`<option ${detected===t?"selected":""}>${t}</option>`).join("")}</select>
     <label>Expiry Date</label>
@@ -831,6 +870,7 @@ async function saveCard(){
     cardno: await encryptStr(cardno),
     cardnoLast4: cardno.replace(/\s/g,"").slice(-4),
     cardtype: document.getElementById("f_cardtype").value,
+    holder: document.getElementById("f_holder").value.trim(),
     expiry: document.getElementById("f_expiry").value,
     limit: +document.getElementById("f_limit").value || 0,
     sharedGroup: document.getElementById("f_sharedgroup").value.trim(),
@@ -1400,27 +1440,80 @@ function groupAvailable(card, allCards){
   return (card.limit||0)-groupUtilised;
 }
 
-function renderCards(cards){
-  document.getElementById("cardsList").innerHTML = cards.length ? cards.map(c=>{
-    const cm = getCardMeta(c.cardtype);
-    const bm = getBankMeta(c.bank);
-    return `<div class="card" onclick="openForm('card', ${JSON.stringify(c).replace(/"/g,"&quot;")})">
-      <div class="entity-head">
-        ${iconHTML("bank-logo", c.bank, bm.emoji, bm.color, 34)}
+function shadeHex(hex, f){
+  const h = hex.replace("#","");
+  const n = parseInt(h.length===3 ? h.split("").map(x=>x+x).join("") : h, 16);
+  const r = Math.max(0,Math.min(255,Math.round(((n>>16)&255)*f)));
+  const g = Math.max(0,Math.min(255,Math.round(((n>>8)&255)*f)));
+  const b = Math.max(0,Math.min(255,Math.round((n&255)*f)));
+  return "rgb("+r+","+g+","+b+")";
+}
+const CARD_THEME = {
+  "HDFC Bank":{a:"#0f5aa8", b:"#1a64b4", bot:"#0a3d73", pat:""},
+  "SBI":{a:"#0d3b1a", b:"#17612d", bot:"#050f08", pat:"rings"},
+  "RBL Bank":{a:"#161616", b:"#2a2a2a", bot:"#050505", pat:"geo"},
+  "ICICI Bank":{a:"#8a2d0f", b:"#b4501b", bot:"#4a1708", pat:""},
+  "Axis Bank":{a:"#7a1536", b:"#9d2249", bot:"#3f0a1c", pat:"geo"},
+  "Kotak Mahindra":{a:"#a31818", b:"#c42a2a", bot:"#560d0d", pat:""},
+  "IDFC First Bank":{a:"#8c1d2c", b:"#b02a3c", bot:"#4a0f17", pat:"rings"},
+  "Yes Bank":{a:"#12307a", b:"#1e46a8", bot:"#0a1b47", pat:""},
+  "IndusInd Bank":{a:"#6b1d12", b:"#8f2a1b", bot:"#380e09", pat:"geo"},
+  "Roar Bank":{a:"#141414", b:"#2c2c2c", bot:"#050505", pat:"", mark:"🦁", word:"Roarbank", sub:"by UNITY SFB"}
+};
+function cardTheme(bank){
+  if(CARD_THEME[bank]) return CARD_THEME[bank];
+  const c = getBankMeta(bank).color;
+  return {a:shadeHex(c,.7), b:shadeHex(c,.95), bot:shadeHex(c,.35), pat:"rings"};
+}
+function ccTileHTML(c, cards, opts){
+  opts = opts || {};
+  const th = cardTheme(c.bank);
+  const due = +c.due || 0;
+  const dd = dayDiff(c.duedate);
+  let cls="ok", p1="✔ Fully Paid", p2="No bills due";
+  if(due>0){
+    if(dd!==null && dd<0){ cls="bad"; p1="⚠ Overdue"; p2=(c.mindue?"Min "+fmtMoney(c.mindue)+" • ":"")+"Was due "+c.duedate; }
+    else if(dd!==null && dd<=7){ cls="warn"; p1= dd===0 ? "Due Today" : "Due in "+dd+" day"+(dd===1?"":"s"); p2=(c.mindue?"Min "+fmtMoney(c.mindue)+" • ":"")+c.duedate; }
+    else { cls="warn"; p1= c.duedate ? "Due "+c.duedate : "Payment Due"; p2= c.mindue ? "Min due "+fmtMoney(c.mindue) : "Unpaid"; }
+  }
+  const slugName = slug(c.bank);
+  const logo = `<img class="cc-logo" src="bank-logo/${slugName}.png" alt="" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">${th.word
+      ? `<span class="cc-wordmark cc-roar" style="display:none;"><span class="cc-lion">${th.mark}</span><span class="cc-wtxt">${esc(th.word)}<small>${esc(th.sub||"")}</small></span></span>`
+      : `<span class="cc-wordmark" style="display:none;">${esc(c.bank)}</span>`}`;
+  const pat = th.pat==="rings" ? '<div class="cc-pat-rings"></div>' : (th.pat==="geo" ? '<div class="cc-pat-geo"></div>' : "");
+  const holder = (c.holder||"").trim() || c.cardtype || "";
+  const revealed = revealState["cardno"+c.id];
+  const numTxt = revealed ? esc(c._cardnoPlain||"") : "•••• "+esc(c.cardnoLast4);
+  const avail = groupAvailable(c, cards);
+  return `<div class="cc-tile" onclick="openForm('card', ${JSON.stringify(c).replace(/"/g,"&quot;")})">
+    <div class="cc-top" style="background:linear-gradient(135deg, ${th.a}, ${th.b});">
+      ${pat}
+      <div class="cc-head"><div>${logo}</div><div class="cc-tap">👆</div></div>
+      <div class="cc-mid">
+        <div class="cc-chip"></div>
         <div>
-          <div class="entity-title">${c.bank} <span class="badge" style="background:${cm.color}">${c.cardtype}</span></div>
-          <div class="entity-sub">Expiry: ${c.expiry||"-"}${c.sharedGroup?` • 🔗 Shares limit (${c.sharedGroup})`:""}</div>
+          <div class="cc-no" onclick="event.stopPropagation(); toggleReveal('cardno${c.id}')">${numTxt}</div>
+          <div class="cc-name">${esc(holder)}${c.expiry?" &nbsp;•&nbsp; "+esc(c.expiry):""}</div>
         </div>
       </div>
-      <div class="row"><span class="k">Card No.</span>
-        <span class="v masked" data-key="cardno${c.id}" onclick="event.stopPropagation(); toggleReveal('cardno${c.id}')">${revealState["cardno"+c.id]? c._cardnoPlain : "•••• •••• •••• "+c.cardnoLast4}</span></div>
-      <div class="row"><span class="k">Limit / Utilised</span><span class="v">${fmtMoney(c.limit)} / ${fmtMoney(c.utilised)}</span></div>
-      <div class="row"><span class="k">Available</span><span class="v">${fmtMoney(groupAvailable(c, cards))}</span></div>
-      <div class="row"><span class="k">Total Due</span><span class="v">${fmtMoney(c.due)}</span></div>
-      <div class="row"><span class="k">Min Due</span><span class="v">${fmtMoney(c.mindue)}</span></div>
-      <div class="row"><span class="k">Due Date</span><span class="v">${c.duedate||"-"}</span></div>
-    </div>`;
-  }).join("") : `<div class="empty">No cards yet. Tap "+ New Card" to add one</div>`;
+    </div>
+    <div class="cc-bottom" style="background:linear-gradient(180deg, ${th.bot}, #000);">
+      <div class="cc-due-row">
+        <div><div class="cc-due-label">Total Due</div><div class="cc-due-amt">${fmtMoney(due)}</div></div>
+        <div class="cc-pill ${cls}"><div class="p1">${p1}</div><div class="p2">${p2}</div></div>
+      </div>
+      <div class="cc-foot">
+        <div>Limit<b>${fmtMoney(c.limit)}</b></div>
+        <div>Utilised<b>${fmtMoney(c.utilised)}</b></div>
+        <div>Available<b>${fmtMoney(avail)}</b></div>
+        <div>Min Due<b>${fmtMoney(c.mindue)}</b></div>
+      </div>
+      ${c.sharedGroup?`<div class="cc-share">🔗 Shares limit (${esc(c.sharedGroup)})</div>`:""}
+    </div>
+  </div>`;
+}
+function renderCards(cards){
+  document.getElementById("cardsList").innerHTML = cards.length ? cards.map(c=>ccTileHTML(c, cards)).join("") : `<div class="empty">No cards yet. Tap "+ New Card" to add one</div>`;
 }
 function renderBanks(banks){
   document.getElementById("banksList").innerHTML = banks.length ? banks.map(b=>{
